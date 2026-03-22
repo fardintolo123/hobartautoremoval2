@@ -33,16 +33,16 @@ class PainterQuoteEngine {
 
   /**
    * BASE LABOR: Painting itself (not prep)
-   * Typical: 0.3-0.4 hours per m² for application (2-3 coats)
+   * Professional application time: 0.2 hours per m² per coat (more realistic)
    */
   private calculateApplicationHours(areaM2: number, coats: number = 2): number {
-    const hoursPerCoatPerM2 = 0.15 // ~6.67 m²/hour per coat
+    const hoursPerCoatPerM2 = NZ_PRICING_2026.APPLICATION_HOURS_PER_COAT_PER_M2
     return areaM2 * hoursPerCoatPerM2 * coats
   }
 
   /**
    * HEIGHT PENALTY: Ladder repositioning & safety precautions
-   * If 2-storey or height > 5m, add 25% to labor
+   * If 2-storey, add 15% to labor (not 25% anymore - height surcharge handles 3m+)
    */
   private calculateHeightPenalty(
     totalHours: number,
@@ -51,8 +51,25 @@ class PainterQuoteEngine {
   ): number {
     if (!heightM && !storeys) return 0
 
-    const isPeakHeight = (heightM && heightM > 5) || (storeys && storeys >= 2)
-    return isPeakHeight ? totalHours * 0.25 : 0
+    // Only apply hour-based penalty for 2+ storeys when height not explicitly provided
+    const isPeakHeight = (storeys && storeys >= 2)
+    return isPeakHeight ? totalHours * 0.15 : 0
+  }
+
+  /**
+   * HEIGHT-BASED SURCHARGE: Fixed cost for access equipment
+   * 0-3m: No surcharge (standard ladder)
+   * 3-5m: Mobile tower / plank setup = $800
+   * 5m+: Professional scaffolding = $2,500
+   */
+  private calculateHeightSurcharge(heightM?: number): number {
+    if (!heightM || heightM <= 3) return 0
+
+    if (heightM <= 5) {
+      return NZ_PRICING_2026.HEIGHT_SURCHARGES.height3to5m
+    }
+
+    return NZ_PRICING_2026.HEIGHT_SURCHARGES.height5plus
   }
 
   /**
@@ -128,7 +145,13 @@ class PainterQuoteEngine {
     const totalLaborHours = prepHours + applicationHours + heightPenaltyHours
     const laborCostNZD = totalLaborHours * this.laborRate
 
-    // Access surcharge
+    // Setup fee (site protection, masking, first-day prep)
+    const setupFeeNZD = NZ_PRICING_2026.SETUP_FEE
+
+    // Height surcharge (mobile tower, scaffolding for 3m+)
+    const heightSurchargeNZD = this.calculateHeightSurcharge(heightM)
+
+    // Access surcharge (for 2+ storeys)
     const accessSurchargeNZD = this.calculateAccessSurcharge(
       storeys,
       heightM,
@@ -138,8 +161,8 @@ class PainterQuoteEngine {
     // Materials
     const materialsCostNZD = this.calculateMaterialsCost(areaM2, input.paintSystem)
 
-    // Subtotal (before GST)
-    const subtotalNZD = laborCostNZD + materialsCostNZD + accessSurchargeNZD
+    // Subtotal (before GST) - includes setup fee + height surcharge
+    const subtotalNZD = laborCostNZD + materialsCostNZD + setupFeeNZD + heightSurchargeNZD + accessSurchargeNZD
 
     // GST
     const gstNZD = subtotalNZD * NZ_PRICING_2026.GST_RATE
@@ -151,9 +174,10 @@ class PainterQuoteEngine {
       `Condition: ${CONDITION_LEVELS[conditionLevel].description}`,
       `Paint System: ${input.paintSystem || 'premium'} (${coats} coats)`,
       `Labour hours: ${totalLaborHours.toFixed(1)} hours @ $${this.laborRate}/hr`,
-      heightM ? `Height: ${heightM.toFixed(1)}m${heightPenaltyHours > 0 ? ' (+25% height penalty)' : ''}` : '',
-      storeys > 1 ? `Access: ${storeys}-storey (includes scaffolding surcharge)` : '',
-      'Excludes: Site protection, roof work, lead stripping (if required)',
+      heightM ? `Height: ${heightM.toFixed(1)}m${heightSurchargeNZD > 0 ? ` (height surcharge: $${heightSurchargeNZD})` : ''}` : '',
+      storeys > 1 ? `Access: ${storeys}-storey (includes scaffolding surcharge: $${accessSurchargeNZD})` : '',
+      `Setup & Site Protection: $${setupFeeNZD} (masking, covering, first-day prep work)`,
+      'Excludes: Specialist work (roof, gutters, weathertightness repairs, lead stripping)',
     ].filter(Boolean)
 
     return {
@@ -175,7 +199,7 @@ class PainterQuoteEngine {
         prep: prepCostNZD,
         labor: laborCostNZD - prepCostNZD,
         materials: materialsCostNZD,
-        access: accessSurchargeNZD,
+        access: accessSurchargeNZD + heightSurchargeNZD + setupFeeNZD,
       },
       assumptions,
     }

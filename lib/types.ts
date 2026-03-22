@@ -64,25 +64,25 @@ export const CONDITION_LEVELS: Record<ConditionLevel, ConditionClassification> =
   level1: {
     level: 'level1',
     description: 'Wash & Paint - Smooth surface, no fading',
-    prepHoursPerM2: 0.05,
+    prepHoursPerM2: 0.15,
     examples: ['Recently painted', 'Good condition', 'Minor dust only'],
   },
   level2: {
     level: 'level2',
     description: 'Standard Prep - Minor fading, light sanding required',
-    prepHoursPerM2: 0.1,
+    prepHoursPerM2: 0.25,
     examples: ['Slight fading', 'Minor weathering', '1-3 year old paint'],
   },
   level3: {
     level: 'level3',
     description: 'Heavy Prep - Visible peeling, needs scraping/spot priming',
-    prepHoursPerM2: 0.4,
+    prepHoursPerM2: 0.6,
     examples: ['Visible peeling', 'Flaking paint', 'Coating failure', 'Weatherboard exposure'],
   },
   level4: {
     level: 'level4',
     description: 'Full Strip - Major coating failure, needs heat-gun stripping',
-    prepHoursPerM2: 0.8,
+    prepHoursPerM2: 1.1,
     examples: ['Complete failure', 'Multiple layers failing', 'Rust/mold damage'],
   },
 }
@@ -91,12 +91,19 @@ export const CONDITION_LEVELS: Record<ConditionLevel, ConditionClassification> =
 export const NZ_PRICING_2026 = {
   LABOR_RATE_PER_HOUR: { min: 55, mid: 65, max: 75 }, // NZD
   MATERIAL_COST_PER_M2: { standard: 15, premium: 22, commercial: 28 }, // NZD
+  SETUP_FEE: 350, // Fixed fee for site protection, masking, setup - first day work
+  HEIGHT_SURCHARGES: {
+    under3m: 0,
+    height3to5m: 800, // Mobile tower/plank setup for 3-5m heights
+    height5plus: 2500, // Complex scaffolding for 5m+
+  },
   ACCESS_SURCHARGE: {
     ground: 0,
     singleLadder: 0,
     twoStoreyScaffolding: { min: 2000, mid: 3500, max: 5000 },
     complexScaffolding: { min: 5000, mid: 7500, max: 10000 },
   },
+  APPLICATION_HOURS_PER_COAT_PER_M2: 0.2, // More realistic coating time (was 0.15)
   GST_RATE: 0.15,
   DOOR_HEIGHT_M: 1.98, // Standard NZ external door for reference scaling
   WEATHERBOARD_WIDTH_MM: 150,
