@@ -86,10 +86,7 @@ export function LeadForm() {
 
                 <Button
                   type="submit"
-                  className="w-full h-12 font-semibold text-white shadow-none border-0 gap-2 cursor-pointer"
-                  style={{ backgroundColor: "#f97316" }}
-                  onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = "#ea6c0a")}
-                  onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = "#f97316")}
+                  className="w-full h-12 font-semibold text-white shadow-none border-0 gap-2 cursor-pointer bg-[#f97316] hover:bg-[#ea6c0a]"
                 >
                   Confirm My Estimate
                   <ArrowRight className="w-4 h-4" />

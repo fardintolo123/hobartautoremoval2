@@ -213,10 +213,7 @@ export function Hero() {
                 {estimated && <ShimmerEstimate />}
 
                 <Button
-                  className="w-full mt-5 font-semibold h-11 text-white shadow-none border-0 cursor-pointer"
-                  style={{ backgroundColor: "#f97316" }}
-                  onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = "#ea6c0a")}
-                  onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = "#f97316")}
+                  className="w-full mt-5 font-semibold h-11 text-white shadow-none border-0 cursor-pointer bg-[#f97316] hover:bg-[#ea6c0a]"
                   onClick={() => {
                     if (!file) fileRef.current?.click()
                     else document.getElementById("lead-form")?.scrollIntoView({ behavior: "smooth" })

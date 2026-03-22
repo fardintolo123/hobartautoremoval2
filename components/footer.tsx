@@ -1,3 +1,5 @@
+"use client"
+
 import { PaintBucket, MapPin, Phone, Mail, Instagram, Facebook } from "lucide-react"
 
 export function Footer() {
