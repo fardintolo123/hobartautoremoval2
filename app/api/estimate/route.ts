@@ -1,5 +1,65 @@
 import { generateText } from "ai"
 
+// NZ painting rates per m² (ex-GST)
+const BASE_RATES = {
+  interior: { prep: 12, paint: 28, cleanup: 6 },
+  exterior: { prep: 18, paint: 35, cleanup: 8 },
+  ceiling: { prep: 10, paint: 22, cleanup: 5 },
+  deck: { prep: 20, paint: 30, cleanup: 6 },
+  fence: { prep: 8, paint: 18, cleanup: 4 },
+}
+
+const CONDITION_MULTIPLIER: Record<string, number> = {
+  good: 0.8,
+  fair: 1.0,
+  poor: 1.3,
+  peeling: 1.5,
+  damaged: 1.7,
+}
+
+function generateFallbackEstimate(
+  roomType: string,
+  size: string,
+  condition: string
+) {
+  // Parse size - extract number
+  const sizeNum = parseFloat(size) || 20
+  const area = Math.max(sizeNum, 5)
+
+  // Determine rate category
+  let rates = BASE_RATES.interior
+  const rt = roomType.toLowerCase()
+  if (rt.includes("exterior") || rt.includes("outside")) rates = BASE_RATES.exterior
+  else if (rt.includes("ceiling")) rates = BASE_RATES.ceiling
+  else if (rt.includes("deck")) rates = BASE_RATES.deck
+  else if (rt.includes("fence")) rates = BASE_RATES.fence
+
+  // Apply condition multiplier
+  const condKey = Object.keys(CONDITION_MULTIPLIER).find((k) =>
+    condition.toLowerCase().includes(k)
+  )
+  const mult = condKey ? CONDITION_MULTIPLIER[condKey] : 1.0
+
+  const prepLow = Math.round(area * rates.prep * mult * 0.85)
+  const prepHigh = Math.round(area * rates.prep * mult * 1.15)
+  const paintLow = Math.round(area * rates.paint * mult * 0.85)
+  const paintHigh = Math.round(area * rates.paint * mult * 1.15)
+  const cleanLow = Math.round(area * rates.cleanup * 0.9)
+  const cleanHigh = Math.round(area * rates.cleanup * 1.1)
+
+  return {
+    lineItems: [
+      { label: "Surface preparation", low: prepLow, high: prepHigh },
+      { label: "Two premium coats (Resene)", low: paintLow, high: paintHigh },
+      { label: "Clean-up & site protection", low: cleanLow, high: cleanHigh },
+    ],
+    totalLow: prepLow + paintLow + cleanLow,
+    totalHigh: prepHigh + paintHigh + cleanHigh,
+    notes: `Estimate based on ~${area}m² ${rt || "interior"} area in ${condition || "fair"} condition. Final quote may vary after on-site inspection. Prices ex-GST.`,
+    confidence: "medium" as const,
+  }
+}
+
 export async function POST(req: Request) {
   const formData = await req.formData()
 
@@ -68,7 +128,9 @@ Use realistic Auckland market rates. If photos are provided, factor in visible s
     const parsed = JSON.parse(raw)
     return Response.json({ success: true, estimate: parsed })
   } catch (err) {
-    console.error("[v0] Estimate API error:", err)
-    return Response.json({ success: false, error: "Failed to generate estimate. Please try again." }, { status: 500 })
+    console.error("[v0] Estimate API error (using fallback):", err)
+    // Return a formula-based fallback estimate instead of failing
+    const fallback = generateFallbackEstimate(roomType, size, condition)
+    return Response.json({ success: true, estimate: fallback, fallback: true })
   }
 }
