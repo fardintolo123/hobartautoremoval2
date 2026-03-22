@@ -1,4 +1,4 @@
-import { generateText } from "ai"
+import { GoogleGenerativeAI } from "@google/generative-ai"
 
 // NZ painting rates per m² (ex-GST)
 const BASE_RATES = {
@@ -70,23 +70,18 @@ export async function POST(req: Request) {
   const notes = formData.get("notes") as string
   const imageFiles = formData.getAll("images") as File[]
 
-  // Build image parts for Gemini vision
-  const imageParts: { type: "image"; image: string; mimeType: string }[] = []
-  for (const file of imageFiles) {
-    const arrayBuffer = await file.arrayBuffer()
-    const base64 = Buffer.from(arrayBuffer).toString("base64")
-    imageParts.push({
-      type: "image",
-      image: base64,
-      mimeType: file.type as string,
-    })
+  const apiKey = process.env.GOOGLE_GENERATIVE_AI_API_KEY
+  if (!apiKey) {
+    console.error("[v0] Missing GOOGLE_GENERATIVE_AI_API_KEY environment variable")
+    const fallback = generateFallbackEstimate(roomType, size, condition)
+    return Response.json({ success: true, estimate: fallback, fallback: true })
   }
 
   const prompt = `You are a professional painting estimator in New Zealand with deep knowledge of Auckland and NZ regional pricing.
 
 A homeowner has submitted the following job details:
 - Room / area type: ${roomType || "Not specified"}
-- Approximate size: ${size || "Not specified"}
+- Approximate size: ${size || "Not specified"} m²
 - Current condition of surfaces: ${condition || "Not specified"}
 - Suburb / location: ${suburb || "Not specified"}
 - Additional notes: ${notes || "None"}
@@ -110,21 +105,39 @@ Respond ONLY with a valid JSON object — no markdown, no explanation, just pure
 Use realistic Auckland market rates. If photos are provided, factor in visible surface conditions, room complexity, and any special prep work required. Always provide a price RANGE (low to high). Do not include GST — note this is ex-GST.`
 
   try {
-    const result = await generateText({
-      model: "google/gemini-2.0-flash",
-      messages: [
-        {
-          role: "user",
-          content: [
-            ...imageParts,
-            { type: "text", text: prompt },
-          ],
+    const client = new GoogleGenerativeAI(apiKey)
+    const model = client.getGenerativeModel({ model: "gemini-2.0-flash" })
+
+    // Build image parts for Gemini
+    const imageParts: { inlineData: { data: string; mimeType: string } }[] = []
+    for (const file of imageFiles) {
+      const arrayBuffer = await file.arrayBuffer()
+      const base64 = Buffer.from(arrayBuffer).toString("base64")
+      imageParts.push({
+        inlineData: {
+          data: base64,
+          mimeType: file.type || "image/jpeg",
         },
-      ],
-    })
+      })
+    }
+
+    // Build content array
+    const content: (
+      | { text: string }
+      | { inlineData: { data: string; mimeType: string } }
+    )[] = [{ text: prompt }, ...imageParts]
+
+    const result = await model.generateContent(content)
+    const responseText = result.response.text()
 
     // Strip markdown fences if model wraps response
-    const raw = result.text.trim().replace(/^```json\s*/i, "").replace(/^```\s*/i, "").replace(/```$/i, "").trim()
+    const raw = responseText
+      .trim()
+      .replace(/^```json\s*/i, "")
+      .replace(/^```\s*/i, "")
+      .replace(/```$/i, "")
+      .trim()
+
     const parsed = JSON.parse(raw)
     return Response.json({ success: true, estimate: parsed })
   } catch (err) {
