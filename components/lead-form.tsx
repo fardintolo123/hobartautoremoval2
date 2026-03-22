@@ -1,10 +1,20 @@
 "use client"
 
 import { useState } from "react"
+import Script from "next/script"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
 import { CheckCircle2, ArrowRight } from "lucide-react"
+
+function CalendlyScript() {
+  return (
+    <Script
+      src="https://assets.calendly.com/assets/external/widget.js"
+      strategy="lazyOnload"
+    />
+  )
+}
 
 export function LeadForm() {
   const [submitted, setSubmitted] = useState(false)
@@ -117,18 +127,11 @@ export function LeadForm() {
 
               {/* Calendly inline widget */}
               <div
-                className="rounded-2xl overflow-hidden shadow-sm border border-slate-100"
-                style={{ minHeight: "680px" }}
-              >
-                <iframe
-                  src="https://calendly.com/homepainters-nz/estimate?hide_event_type_details=1&hide_gdpr_banner=1"
-                  width="100%"
-                  height="680"
-                  frameBorder="0"
-                  title="Book a time with Liam"
-                  className="w-full"
-                />
-              </div>
+                className="calendly-inline-widget rounded-2xl overflow-hidden shadow-sm border border-slate-100"
+                data-url="https://calendly.com/bspokcleaning/30min"
+                style={{ minWidth: "320px", height: "700px" }}
+              />
+              <CalendlyScript />
               <p className="text-center text-xs mt-3" style={{ color: "#94a3b8" }}>
                 Can't find a time? Email us at{" "}
                 <a href="mailto:hello@homepainters.co.nz" style={{ color: "#f97316" }}>
