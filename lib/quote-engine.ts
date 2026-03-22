@@ -57,19 +57,59 @@ class PainterQuoteEngine {
   }
 
   /**
-   * HEIGHT-BASED SURCHARGE: Fixed cost for access equipment
+   * HEIGHT-BASED SURCHARGE: Fixed cost for access equipment (NZ WorkSafe 3m Rule)
    * 0-3m: No surcharge (standard ladder)
-   * 3-5m: Mobile tower / plank setup = $800
+   * 3-3.2m: Mobile tower/plank setup = $800
+   * 3.2-5m: Specialist mobile tower + higher complexity = $1,500
    * 5m+: Professional scaffolding = $2,500
    */
   private calculateHeightSurcharge(heightM?: number): number {
     if (!heightM || heightM <= 3) return 0
 
+    if (heightM <= 3.2) {
+      return NZ_PRICING_2026.HEIGHT_SURCHARGES.height3to3_2m
+    }
+
     if (heightM <= 5) {
-      return NZ_PRICING_2026.HEIGHT_SURCHARGES.height3to5m
+      return NZ_PRICING_2026.HEIGHT_SURCHARGES.height3_2to5m
     }
 
     return NZ_PRICING_2026.HEIGHT_SURCHARGES.height5plus
+  }
+
+  /**
+   * Get height surcharge label for display
+   */
+  private getHeightSurchargeLabel(heightM?: number): string {
+    if (!heightM || heightM <= 3) return ''
+
+    if (heightM <= 3.2) {
+      return 'Mobile Tower Setup (3-3.2m)'
+    }
+
+    if (heightM <= 5) {
+      return 'Specialist Mobile Tower (3.2-5m)'
+    }
+
+    return 'Full Scaffolding (5m+)'
+  }
+
+  /**
+   * ESTIMATE PROJECT DURATION
+   * Based on: total prep + application hours, crew size, and realistic daily capacity
+   * 
+   * For weatherboards especially, crews need buffer for weather, drying time
+   * Standard crew: 2 painters = ~35 m²/day (includes all prep, drying)
+   */
+  private calculateEstimatedProjectDays(
+    areaM2: number,
+    crewSize: number = NZ_PRICING_2026.CREW_TIMELINE.standardCrewSize
+  ): number {
+    const productionRatePerDay = NZ_PRICING_2026.CREW_TIMELINE.productionRatePerDay
+    const daysRequired = areaM2 / productionRatePerDay
+    
+    // Round up and add minimal buffer (already built into production rate)
+    return Math.ceil(daysRequired)
   }
 
   /**
@@ -293,13 +333,19 @@ class PainterQuoteEngine {
     const gstNZD = subtotalNZD * NZ_PRICING_2026.GST_RATE
     const totalNZD = subtotalNZD + gstNZD
 
+    // Calculate project timeline
+    const estimatedDays = this.calculateEstimatedProjectDays(areaM2)
+    const heightSurchargeLabel = this.getHeightSurchargeLabel(heightM)
+
     // Assumptions for transparency
     const assumptions: string[] = [
       `Area: ${areaM2.toFixed(1)} m²`,
       `Condition: ${CONDITION_LEVELS[conditionLevel].description}`,
       `Paint System: ${input.paintSystem || 'premium'} (${coats} coats)`,
       `Labour hours: ${totalLaborHours.toFixed(1)} hours @ $${this.laborRate}/hr`,
-      heightM ? `Height: ${heightM.toFixed(1)}m${heightSurchargeNZD > 0 ? ` (height surcharge: $${heightSurchargeNZD})` : ''}` : '',
+      `Project Duration: ~${estimatedDays} working days with 2-painter crew (weather dependent)`,
+      `Standard Crew: ${NZ_PRICING_2026.CREW_TIMELINE.standardCrewSize} professional painters (~${NZ_PRICING_2026.CREW_TIMELINE.productionRatePerDay}m²/day capacity)`,
+      heightM ? `Height: ${heightM.toFixed(1)}m${heightSurchargeLabel ? ` (${heightSurchargeLabel}: $${heightSurchargeNZD})` : ''}` : '',
       storeys > 1 ? `Access: ${storeys}-storey (includes scaffolding surcharge: $${accessSurchargeNZD})` : '',
       `Setup & Site Protection: $${setupFeeNZD} (masking, covering, first-day prep work)`,
       input.builtBefore1970 && input.includesLeadRemoval ? `Lead paint removal: $${leadRemovalCostNZD.toFixed(0)} (testing, wet-strip, hazmat disposal)` : '',

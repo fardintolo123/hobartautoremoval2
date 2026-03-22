@@ -118,9 +118,17 @@ export const NZ_PRICING_2026 = {
   MATERIAL_COST_PER_M2: { standard: 15, premium: 22, commercial: 28 }, // NZD
   SETUP_FEE: 350, // Fixed fee for site protection, masking, setup - first day work
   HEIGHT_SURCHARGES: {
-    under3m: 0,
-    height3to5m: 800, // Mobile tower/plank setup for 3-5m heights
+    under3m: 0, // Standard ladder work
+    height3to3_2m: 800, // Basic mobile tower setup for 3-3.2m heights
+    height3_2to5m: 1500, // Specialist mobile tower + higher complexity for 3.2-5m
     height5plus: 2500, // Complex scaffolding for 5m+
+  },
+  // Crew & Timeline - Standard Residential Job
+  CREW_TIMELINE: {
+    standardCrewSize: 2, // Professional painters per team
+    productionRatePerDay: 35, // m²/day for 2-painter crew (includes prep, drying time)
+    daysPerWeek: 5, // Monday-Friday
+    bufferDaysPercent: 15, // Add 15% buffer for weather/drying (incorporated in production rate)
   },
   ACCESS_SURCHARGE: {
     ground: 0,

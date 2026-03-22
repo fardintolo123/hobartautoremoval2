@@ -511,6 +511,45 @@ export function QuoteCalculator() {
               )}
             </div>
 
+            {/* Crew & Timeline - Highlighted Section */}
+            <div className="bg-gradient-to-br from-orange-50 to-amber-50 rounded-lg p-6 border border-orange-200">
+              <h3 className="font-semibold mb-4 flex items-center gap-2" style={{ color: '#0f172a' }}>
+                <span className="text-lg">⏱️</span> Project Timeline & Crew
+              </h3>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <p className="text-xs font-medium mb-1" style={{ color: '#94a3b8' }}>
+                    Estimated Duration
+                  </p>
+                  <p className="text-xl font-bold" style={{ color: '#f97316' }}>
+                    {quote.assumptions
+                      .find(a => a.includes('Project Duration'))
+                      ?.split('~')[1]
+                      ?.split(' working')[0] || '4-6 days'}
+                  </p>
+                  <p className="text-xs mt-1" style={{ color: '#64748b' }}>
+                    Weather dependent
+                  </p>
+                </div>
+                <div>
+                  <p className="text-xs font-medium mb-1" style={{ color: '#94a3b8' }}>
+                    Standard Crew
+                  </p>
+                  <p className="text-xl font-bold" style={{ color: '#0f172a' }}>
+                    2 Painters
+                  </p>
+                  <p className="text-xs mt-1" style={{ color: '#64748b' }}>
+                    Professional team
+                  </p>
+                </div>
+              </div>
+              <div className="mt-4 p-3 bg-white rounded border border-orange-100">
+                <p className="text-xs" style={{ color: '#475569' }}>
+                  <strong>Why 2 painters?</strong> One handles ladder work (high areas), the other manages ground-level "cutting in" and prep. Faster completion + safer WorkSafe-compliant access work.
+                </p>
+              </div>
+            </div>
+
             {/* Job Details */}
             <div className="bg-white rounded-lg p-6 border border-slate-100 space-y-3">
               <h3 className="font-semibold" style={{ color: '#0f172a' }}>
