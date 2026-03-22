@@ -14,18 +14,30 @@ export async function calculateQuoteWithImage(
 ): Promise<QuoteCalculation & { error?: string }> {
   try {
     const apiKey = process.env.GOOGLE_GEMINI_API_KEY
+    console.log('🔍 API Key Check:', apiKey ? '✅ FOUND' : '❌ MISSING')
+    
     if (!apiKey) {
       throw new Error('GOOGLE_GEMINI_API_KEY not configured')
     }
 
     // If image is provided, analyze it with Gemini
     if (input.imageBase64) {
+      console.log('📸 Starting Gemini Vision Analysis...')
       const analyzer = new GeminiVisionAnalyzer(apiKey)
       const analysis = await analyzer.analyzeImage(input.imageBase64)
 
+      console.log('✅ Gemini Analysis Complete:', {
+        area: analysis.estimatedAreaM2.toFixed(1) + ' m²',
+        height: analysis.estimatedHeightM?.toFixed(1) + ' m',
+        condition: analysis.conditionLevel,
+        storeys: analysis.storeys,
+        confidence: analysis.confidence + '%',
+        priceRange: (analysis as any).estimatedPriceRangeNZD,
+      })
+
       // Check confidence
       if (!analyzer.validateConfidence(analysis, 70)) {
-        console.warn(`Low confidence analysis: ${analysis.confidence}%`)
+        console.warn(`⚠️ Low confidence analysis: ${analysis.confidence}%`)
       }
 
       input.gemminiAnalysis = analysis

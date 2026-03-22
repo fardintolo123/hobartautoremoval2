@@ -20,6 +20,12 @@ export interface GeminiVisionAnalysis {
   accessDifficulty: 'ground' | 'single-ladder' | 'complex-scaffold'
   recommendations: string[]
   confidence: number
+  estimatedPriceRangeNZD?: {
+    lowEstimate: number
+    highEstimate: number
+    midpointEstimate: number
+    assumptions: string
+  }
 }
 
 export interface QuoteInput {

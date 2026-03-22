@@ -59,6 +59,22 @@ ACCESS DIFFICULTY:
 - single-ladder: Single storey or low access
 - complex-scaffold: 2+ storeys, requires professional scaffolding
 
+PRICE RANGE ESTIMATION (NZ 2026 Professional Rates):
+Based on condition level, estimate price per m²:
+- Level 1 (Wash & Paint): $40-60/m² (low labor, minimal prep)
+- Level 2 (Standard Prep): $60-90/m² (moderate prep, standard conditions)
+- Level 3 (Heavy Prep): $90-150/m² (significant scraping, sanding required)
+- Level 4 (Full Strip): $150-250/m² (major removal, heat-gun stripping)
+
+Calculate estimated price range (NZD):
+1. pricePerM2Low = condition level minimum
+2. pricePerM2High = condition level maximum
+3. baseCostLow = estimatedAreaM2 × pricePerM2Low
+4. baseCostHigh = estimatedAreaM2 × pricePerM2High
+5. If height > 3m: ADD height surcharge $800-2500 based on height
+6. If storeys >= 2: ADD $2000-5000 for scaffolding
+7. Add 15% GST to final range
+
 RESPONSE FORMAT (as JSON only, no markdown):
 {
   "claddingType": "string",
@@ -70,7 +86,13 @@ RESPONSE FORMAT (as JSON only, no markdown):
   "hasSecondFloor": boolean,
   "accessDifficulty": "ground|single-ladder|complex-scaffold",
   "recommendations": ["string", "string"],
-  "confidence": number (0-100, how confident in the estimate)
+  "confidence": number (0-100),
+  "estimatedPriceRangeNZD": {
+    "lowEstimate": number,
+    "highEstimate": number,
+    "midpointEstimate": number,
+    "assumptions": "string (e.g., 'Includes 35m²/day with 2-painter crew, prep time, materials, GST')"
+  }
 }
 
 If image doesn't show a house exterior, respond with:
