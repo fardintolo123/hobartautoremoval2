@@ -28,10 +28,10 @@ export function Nav() {
       <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
         {/* Logo */}
         <a href="#" className="flex items-center gap-2 group" aria-label="HomePainters home">
-          <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ backgroundColor: "#0f172a" }}>
+          <div className="w-8 h-8 rounded-lg flex items-center justify-center bg-[#0f172a]">
             <PaintBucket className="w-4 h-4 text-white" />
           </div>
-          <span className="font-semibold text-sm tracking-tight" style={{ color: "#0f172a" }}>
+          <span className="font-semibold text-sm tracking-tight text-[#0f172a]">
             HomePainters
             <span className="text-xs font-normal opacity-60">.co.nz</span>
           </span>
@@ -47,10 +47,7 @@ export function Nav() {
             <a
               key={label}
               href={href}
-              className="text-sm font-medium transition-colors"
-              style={{ color: "#64748b" }}
-              onMouseEnter={(e) => (e.currentTarget.style.color = "#0f172a")}
-              onMouseLeave={(e) => (e.currentTarget.style.color = "#64748b")}
+              className="text-sm font-medium transition-colors text-[#64748b] hover:text-[#0f172a]"
             >
               {label}
             </a>
@@ -60,10 +57,7 @@ export function Nav() {
         {/* CTA */}
         <Button
           onClick={scrollToQuote}
-          className="font-semibold text-sm px-5 h-9 shadow-none border-0 text-white cursor-pointer"
-          style={{ backgroundColor: "#f97316" }}
-          onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = "#ea6c0a")}
-          onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = "#f97316")}
+          className="font-semibold text-sm px-5 h-9 shadow-none border-0 text-white cursor-pointer bg-[#f97316] hover:bg-[#ea6c0a]"
         >
           Get My Quote
         </Button>
