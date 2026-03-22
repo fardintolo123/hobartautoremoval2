@@ -114,6 +114,101 @@ class PainterQuoteEngine {
   }
 
   /**
+   * LEGAL & SAFETY: Lead Paint Removal (Pre-1970s homes)
+   * NZ WorkSafe requirement: Wet-strip removal, hazmat disposal
+   * Cost: Testing ($400) + Labor ($15-$50/m²) + Disposal ($300/load)
+   */
+  private calculateLeadRemovalCost(areaM2: number, includesRemoval: boolean = false): number {
+    if (!includesRemoval) return 0
+
+    const testingFee = NZ_PRICING_2026.LEAD_PAINT.testingFee
+    const laborHours = areaM2 * NZ_PRICING_2026.LEAD_PAINT.removalHoursPerM2
+    const laborCost = laborHours * this.laborRate
+    const materialsCost = areaM2 * NZ_PRICING_2026.LEAD_PAINT.costPerM2
+    const hazmatDisposal = NZ_PRICING_2026.LEAD_PAINT.hazmatDisposalPerLoad
+
+    return testingFee + laborCost + materialsCost + hazmatDisposal
+  }
+
+  /**
+   * COASTAL SURCHARGE: Salt wash & high-build primer
+   * Common in Auckland/Northland within 500m of coast
+   * Adds: Pre-wash ($600) + Extra primer ($8/m²) + Additional coat prep
+   */
+  private calculateCoastalSurcharge(areaM2: number, isCoastal: boolean = false): number {
+    if (!isCoastal) return 0
+
+    const saltWashPrep = NZ_PRICING_2026.COASTAL_SURCHARGE.saltWashPrep
+    const highBuildPrimerCost = areaM2 * NZ_PRICING_2026.COASTAL_SURCHARGE.highBuildPrimerPerM2
+    const additionalCoatMaterial = areaM2 * NZ_PRICING_2026.COASTAL_SURCHARGE.additionalCoatPerM2
+
+    // Additional prep labor for coastal (0.1 hrs/m² extra)
+    const additionalLaborHours = areaM2 * 0.1
+    const additionalLaborCost = additionalLaborHours * this.laborRate
+
+    return saltWashPrep + highBuildPrimerCost + additionalCoatMaterial + additionalLaborCost
+  }
+
+  /**
+   * SOFFITS & FASCIAS: Detailed trim work
+   * Often different color than walls, requires detailed cutting in
+   * Labor-intensive: 0.6 hrs/m² vs 0.2 hrs/m² for walls
+   */
+  private calculateSoffisFasciasCost(
+    soffisFasciasAreaM2: number,
+    paintSystem: 'standard' | 'premium' | 'commercial' = 'premium'
+  ): number {
+    if (!soffisFasciasAreaM2 || soffisFasciasAreaM2 === 0) return 0
+
+    // Labor: 0.6 hrs/m² for detailed trim work + 2 coats
+    const hoursPerM2 = NZ_PRICING_2026.SOFFITS_FASCIAS.hoursPerM2
+    const totalHours = soffisFasciasAreaM2 * hoursPerM2 * 2 // Assume 2 coats
+    const laborCost = totalHours * this.laborRate
+
+    // Materials: Different paint for trim (may be premium)
+    const materialCostPerM2 = NZ_PRICING_2026.SOFFITS_FASCIAS.materialCostPerM2[paintSystem]
+    const materialsCost = soffisFasciasAreaM2 * materialCostPerM2
+
+    return laborCost + materialsCost
+  }
+
+  /**
+   * JOINERY WORK: Windows & doors (timber vs aluminum)
+   * Timber frames: 2.5 hrs each (complex masking, cutting in, drying between coats)
+   * Aluminum: 0.3 hrs each (no absorption, much faster)
+   * Professional estimates: 12 timber windows can add 30+ hours
+   */
+  private calculateJoineryWorkCost(
+    joineryType: 'timber' | 'aluminum' | 'mixed' | 'none' = 'none',
+    numTimberFrames: number = 0
+  ): number {
+    if (joineryType === 'none' || numTimberFrames === 0) return 0
+
+    let laborHours = 0
+    let materialsCost = 0
+
+    if (joineryType === 'timber') {
+      // Assume all frames are timber
+      laborHours = numTimberFrames * NZ_PRICING_2026.JOINERY_WORK.timberFrame
+      materialsCost = numTimberFrames * 15 // Primer + undercoat + topcoat materials
+    } else if (joineryType === 'aluminum') {
+      // Aluminum windows (spray-friendly, no prep needed)
+      laborHours = numTimberFrames * NZ_PRICING_2026.JOINERY_WORK.aluminiumFrame
+      materialsCost = numTimberFrames * 5 // Minimal materials
+    } else if (joineryType === 'mixed') {
+      // Assume 70% timber, 30% aluminum
+      const timberFrames = Math.round(numTimberFrames * 0.7)
+      const aluminiumFrames = numTimberFrames - timberFrames
+      laborHours =
+        timberFrames * NZ_PRICING_2026.JOINERY_WORK.timberFrame +
+        aluminiumFrames * NZ_PRICING_2026.JOINERY_WORK.aluminiumFrame
+      materialsCost = timberFrames * 15 + aluminiumFrames * 5
+    }
+
+    return laborHours * this.laborRate + materialsCost
+  }
+
+  /**
    * Main quote calculation
    */
   calculate(input: QuoteInput): QuoteCalculation {
@@ -161,8 +256,38 @@ class PainterQuoteEngine {
     // Materials
     const materialsCostNZD = this.calculateMaterialsCost(areaM2, input.paintSystem)
 
-    // Subtotal (before GST) - includes setup fee + height surcharge
-    const subtotalNZD = laborCostNZD + materialsCostNZD + setupFeeNZD + heightSurchargeNZD + accessSurchargeNZD
+    // NZ COMPLIANCE & HIDDEN COSTS (Issue #1)
+    const leadRemovalCostNZD = this.calculateLeadRemovalCost(
+      areaM2,
+      input.builtBefore1970 && input.includesLeadRemoval
+    )
+
+    const coastalSurchargeCostNZD = this.calculateCoastalSurcharge(
+      areaM2,
+      input.withinCoastal500m
+    )
+
+    const soffisFasciasCostNZD = this.calculateSoffisFasciasCost(
+      input.soffisFasciasAreaM2 || 0,
+      input.paintSystem
+    )
+
+    const joineryWorkCostNZD = this.calculateJoineryWorkCost(
+      input.joineryType,
+      input.numTimberFrames || 0
+    )
+
+    // Subtotal (before GST) - includes all costs
+    const subtotalNZD =
+      laborCostNZD +
+      materialsCostNZD +
+      setupFeeNZD +
+      heightSurchargeNZD +
+      accessSurchargeNZD +
+      leadRemovalCostNZD +
+      coastalSurchargeCostNZD +
+      soffisFasciasCostNZD +
+      joineryWorkCostNZD
 
     // GST
     const gstNZD = subtotalNZD * NZ_PRICING_2026.GST_RATE
@@ -177,7 +302,11 @@ class PainterQuoteEngine {
       heightM ? `Height: ${heightM.toFixed(1)}m${heightSurchargeNZD > 0 ? ` (height surcharge: $${heightSurchargeNZD})` : ''}` : '',
       storeys > 1 ? `Access: ${storeys}-storey (includes scaffolding surcharge: $${accessSurchargeNZD})` : '',
       `Setup & Site Protection: $${setupFeeNZD} (masking, covering, first-day prep work)`,
-      'Excludes: Specialist work (roof, gutters, weathertightness repairs, lead stripping)',
+      input.builtBefore1970 && input.includesLeadRemoval ? `Lead paint removal: $${leadRemovalCostNZD.toFixed(0)} (testing, wet-strip, hazmat disposal)` : '',
+      input.withinCoastal500m ? `Coastal surcharge: $${coastalSurchargeCostNZD.toFixed(0)} (salt wash, high-build primer, extra coat)` : '',
+      input.includesSoffitsFascias ? `Soffits & Fascias: $${soffisFasciasCostNZD.toFixed(0)} (${input.soffisFasciasAreaM2?.toFixed(1)}m² @ $${(soffisFasciasCostNZD / (input.soffisFasciasAreaM2 || 1)).toFixed(0)}/m²)` : '',
+      input.joineryType && input.joineryType !== 'none' ? `Joinery work (${input.numTimberFrames || 0} ${input.joineryType} frames): $${joineryWorkCostNZD.toFixed(0)}` : '',
+      'Excludes: Rotten timber replacement (subject to site inspection), roof/gutter work, weathertightness repairs',
     ].filter(Boolean)
 
     return {
@@ -192,6 +321,10 @@ class PainterQuoteEngine {
       laborCostNZD,
       accessSurchargeNZD,
       materialsCostNZD,
+      leadRemovalCostNZD,
+      coastalSurchargeCostNZD,
+      soffisFasciasCostNZD,
+      joineryWorkCostNZD,
       subtotalNZD,
       gstNZD,
       totalNZD,
@@ -200,6 +333,8 @@ class PainterQuoteEngine {
         labor: laborCostNZD - prepCostNZD,
         materials: materialsCostNZD,
         access: accessSurchargeNZD + heightSurchargeNZD + setupFeeNZD,
+        compliance: leadRemovalCostNZD + coastalSurchargeCostNZD,
+        additionalWorks: soffisFasciasCostNZD + joineryWorkCostNZD,
       },
       assumptions,
     }

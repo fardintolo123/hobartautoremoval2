@@ -32,6 +32,22 @@ export interface QuoteInput {
   coatsRequired?: number
   accessMethod?: 'ground' | 'single-ladder' | 'scaffolding'
   storeyCount?: number
+  
+  // Legal & Safety - NZ Compliance
+  builtBefore1970?: boolean // Lead paint testing & removal
+  includesLeadRemoval?: boolean
+  
+  // Coastal considerations
+  withinCoastal500m?: boolean // Salt wash & high-build primer required
+  
+  // Surface condition extreme
+  hasExtensiveFlaking?: boolean // Full strip (bubbling/flaking to wood)
+  
+  // Additional items
+  includesSoffitsFascias?: boolean
+  soffisFasciasAreaM2?: number
+  joineryType?: 'timber' | 'aluminum' | 'mixed' | 'none' // Timber windows add 30+ hrs
+  numTimberFrames?: number
 }
 
 export interface PrepFactorBreakdown {
@@ -48,6 +64,13 @@ export interface QuoteCalculation {
   laborCostNZD: number
   accessSurchargeNZD: number
   materialsCostNZD: number
+  
+  // New NZ Compliance & Hidden Costs
+  leadRemovalCostNZD: number
+  coastalSurchargeCostNZD: number
+  soffisFasciasCostNZD: number
+  joineryWorkCostNZD: number
+  
   subtotalNZD: number
   gstNZD: number
   totalNZD: number
@@ -56,6 +79,8 @@ export interface QuoteCalculation {
     labor: number
     materials: number
     access: number
+    compliance: number // Lead removal + coastal surcharge
+    additionalWorks: number // Soffits/fascias + joinery
   }
   assumptions: string[]
 }
@@ -104,6 +129,33 @@ export const NZ_PRICING_2026 = {
     complexScaffolding: { min: 5000, mid: 7500, max: 10000 },
   },
   APPLICATION_HOURS_PER_COAT_PER_M2: 0.2, // More realistic coating time (was 0.15)
+  
+  // Legal & Safety - NZ Compliance (Issue #1)
+  LEAD_PAINT: {
+    testingFee: 400, // Lead testing kit & lab analysis
+    removalHoursPerM2: 0.5, // Wet-strip removal is labor-intensive
+    hazmatDisposalPerLoad: 300, // Sealed waste disposal
+    costPerM2: 15, // Additional materials (primers, sealants)
+  },
+  
+  // Coastal Surcharge - Common in Auckland/Newcastle
+  COASTAL_SURCHARGE: {
+    saltWashPrep: 600, // Pre-wash for salt removal
+    highBuildPrimerPerM2: 8, // Thicker primer for coastal
+    additionalCoatPerM2: 5, // Salt deterioration requires extra coat
+  },
+  
+  // Hidden Cost Items
+  SOFFITS_FASCIAS: {
+    hoursPerM2: 0.6, // More detailed work than walls
+    materialCostPerM2: { standard: 8, premium: 14, commercial: 18 }, // Different paint/finishes
+  },
+  JOINERY_WORK: {
+    timberFrame: 2.5, // Hours per frame (complex masking, cutting in, drying)
+    aluminiumFrame: 0.3, // Much faster (no absorption, spray-friendly)
+    estimatedFramesPerWindow: 0.5, // Partial doors/transom glazed areas
+  },
+  
   GST_RATE: 0.15,
   DOOR_HEIGHT_M: 1.98, // Standard NZ external door for reference scaling
   WEATHERBOARD_WIDTH_MM: 150,

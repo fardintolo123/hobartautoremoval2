@@ -6,6 +6,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Card } from '@/components/ui/card'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Checkbox } from '@/components/ui/checkbox'
 import { ConditionLevel, QuoteCalculation } from '@/lib/types'
 import { calculateQuoteWithImage, calculateQuote } from '@/lib/quote-actions'
 import { Upload, Loader2, AlertCircle, CheckCircle2, DollarSign } from 'lucide-react'
@@ -21,6 +22,20 @@ export function QuoteCalculator() {
   const [loading, setLoading] = useState(false)
   const [quote, setQuote] = useState<QuoteCalculation | null>(null)
   const [error, setError] = useState<string>('')
+  
+  // Legal & Safety
+  const [builtBefore1970, setBuiltBefore1970] = useState(false)
+  const [includesLeadRemoval, setIncludesLeadRemoval] = useState(false)
+  
+  // Coastal
+  const [withinCoastal500m, setWithinCoastal500m] = useState(false)
+  
+  // Additional Works
+  const [includesSoffitsFascias, setIncludesSoffitsFascias] = useState(false)
+  const [soffisFasciasAreaM2, setSoffisFasciasAreaM2] = useState('')
+  const [joineryType, setJoineryType] = useState<'timber' | 'aluminum' | 'mixed' | 'none'>('none')
+  const [numTimberFrames, setNumTimberFrames] = useState('')
+  
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -59,6 +74,16 @@ export function QuoteCalculator() {
           storeyCount: parseInt(storeys),
           paintSystem,
           imageBase64: base64,
+          // Legal & Safety
+          builtBefore1970,
+          includesLeadRemoval: builtBefore1970 && includesLeadRemoval,
+          // Coastal
+          withinCoastal500m,
+          // Additional Works
+          includesSoffitsFascias,
+          soffisFasciasAreaM2: includesSoffitsFascias ? parseFloat(soffisFasciasAreaM2 || '0') : 0,
+          joineryType,
+          numTimberFrames: joineryType !== 'none' ? parseInt(numTimberFrames || '0') : 0,
         })
       } else {
         result = await calculateQuote({
@@ -67,6 +92,16 @@ export function QuoteCalculator() {
           userSelectedCondition: condition,
           storeyCount: parseInt(storeys),
           paintSystem,
+          // Legal & Safety
+          builtBefore1970,
+          includesLeadRemoval: builtBefore1970 && includesLeadRemoval,
+          // Coastal
+          withinCoastal500m,
+          // Additional Works
+          includesSoffitsFascias,
+          soffisFasciasAreaM2: includesSoffitsFascias ? parseFloat(soffisFasciasAreaM2 || '0') : 0,
+          joineryType,
+          numTimberFrames: joineryType !== 'none' ? parseInt(numTimberFrames || '0') : 0,
         })
       }
 
@@ -239,6 +274,139 @@ export function QuoteCalculator() {
             </Select>
           </div>
 
+          {/* NZ COMPLIANCE & HIDDEN COSTS SECTION */}
+          <div className="border-t border-slate-200 pt-6 space-y-6">
+            <h4 className="font-semibold text-sm" style={{ color: '#0f172a' }}>
+              Additional Site Details (NZ Compliance & Hidden Costs)
+            </h4>
+
+            {/* Lead Paint Testing */}
+            <div className="space-y-3">
+              <div className="flex items-center gap-3">
+                <Checkbox
+                  id="pre1970"
+                  checked={builtBefore1970}
+                  onCheckedChange={(checked) => {
+                    setBuiltBefore1970(checked as boolean)
+                    if (!checked) setIncludesLeadRemoval(false)
+                  }}
+                />
+                <Label htmlFor="pre1970" className="text-sm font-medium cursor-pointer" style={{ color: '#0f172a' }}>
+                  Home built before 1970? (Possible lead paint)
+                </Label>
+              </div>
+              {builtBefore1970 && (
+                <div className="ml-8 flex items-center gap-3">
+                  <Checkbox
+                    id="leadRemoval"
+                    checked={includesLeadRemoval}
+                    onCheckedChange={(checked) => setIncludesLeadRemoval(checked as boolean)}
+                  />
+                  <Label htmlFor="leadRemoval" className="text-sm cursor-pointer flex flex-col gap-1" style={{ color: '#0f172a' }}>
+                    <span>Include lead testing & safe removal</span>
+                    <span className="text-xs font-normal" style={{ color: '#94a3b8' }}>
+                      WorkSafe requirement: Testing ($400) + Wet-strip removal ($15-$50/m²)
+                    </span>
+                  </Label>
+                </div>
+              )}
+            </div>
+
+            {/* Coastal Location */}
+            <div className="space-y-3">
+              <div className="flex items-center gap-3">
+                <Checkbox
+                  id="coastal"
+                  checked={withinCoastal500m}
+                  onCheckedChange={(checked) => setWithinCoastal500m(checked as boolean)}
+                />
+                <Label htmlFor="coastal" className="text-sm font-medium cursor-pointer flex flex-col gap-1" style={{ color: '#0f172a' }}>
+                  <span>Within 500m of coast?</span>
+                  <span className="text-xs font-normal" style={{ color: '#94a3b8' }}>
+                    Salt wash prep + high-build primer + extra coat
+                  </span>
+                </Label>
+              </div>
+            </div>
+
+            {/* Soffits & Fascias */}
+            <div className="space-y-3">
+              <div className="flex items-center gap-3">
+                <Checkbox
+                  id="soffit"
+                  checked={includesSoffitsFascias}
+                  onCheckedChange={(checked) => {
+                    setIncludesSoffitsFascias(checked as boolean)
+                    if (!checked) setSoffisFasciasAreaM2('')
+                  }}
+                />
+                <Label htmlFor="soffit" className="text-sm font-medium cursor-pointer" style={{ color: '#0f172a' }}>
+                  Include Soffits & Fascias?
+                </Label>
+              </div>
+              {includesSoffitsFascias && (
+                <div className="ml-8 space-y-2">
+                  <Label htmlFor="soffit-area" className="text-sm" style={{ color: '#64748b' }}>
+                    Soffits & Fascias Area (m²)
+                  </Label>
+                  <Input
+                    id="soffit-area"
+                    type="number"
+                    placeholder="e.g., 8"
+                    value={soffisFasciasAreaM2}
+                    onChange={(e) => setSoffisFasciasAreaM2(e.target.value)}
+                    step="0.1"
+                    className="h-10 border-slate-200"
+                  />
+                  <p className="text-xs" style={{ color: '#94a3b8' }}>
+                    Detailed trim work: 0.6 hrs/m² (vs 0.2 hrs/m² for walls)
+                  </p>
+                </div>
+              )}
+            </div>
+
+            {/* Joinery Work */}
+            <div className="space-y-3">
+              <Label className="text-sm font-medium" style={{ color: '#0f172a' }}>
+                Window & Door Joinery Type
+              </Label>
+              <Select value={joineryType} onValueChange={(v) => {
+                setJoineryType(v as any)
+                if (v === 'none') setNumTimberFrames('')
+              }}>
+                <SelectTrigger className="h-11 border-slate-200">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">None / Already Included</SelectItem>
+                  <SelectItem value="timber">Timber Frames (2.5 hrs each)</SelectItem>
+                  <SelectItem value="aluminum">Aluminum (0.3 hrs each)</SelectItem>
+                  <SelectItem value="mixed">Mixed Timber & Aluminum</SelectItem>
+                </SelectContent>
+              </Select>
+
+              {joineryType !== 'none' && (
+                <div className="ml-0 space-y-2">
+                  <Label htmlFor="frame-count" className="text-sm" style={{ color: '#64748b' }}>
+                    Number of Frames (Windows/Doors)
+                  </Label>
+                  <Input
+                    id="frame-count"
+                    type="number"
+                    placeholder="e.g., 12"
+                    value={numTimberFrames}
+                    onChange={(e) => setNumTimberFrames(e.target.value)}
+                    step="1"
+                    className="h-10 border-slate-200"
+                  />
+                  <p className="text-xs" style={{ color: '#94a3b8' }}>
+                    12 timber frames can add 30+ hours. Aluminum is much faster.
+                  </p>
+                </div>
+              )}
+            </div>
+          </div>
+
           {/* Error Display */}
           {error && (
             <div className="flex items-start gap-3 p-4 rounded-lg bg-red-50 border border-red-200">
@@ -320,13 +488,24 @@ export function QuoteCalculator() {
                 </p>
               </div>
 
-              {quote.accessSurchargeNZD > 0 && (
+              {(quote.accessSurchargeNZD > 0 || quote.leadRemovalCostNZD > 0 || quote.coastalSurchargeCostNZD > 0) && (
                 <div className="bg-white rounded-lg p-4 border border-slate-100 md:col-span-2">
                   <p className="text-xs font-medium mb-1" style={{ color: '#94a3b8' }}>
-                    Access/Scaffolding Surcharge
+                    Access/Safety/Compliance Surcharges
                   </p>
                   <p className="text-xl font-bold" style={{ color: '#0f172a' }}>
-                    ${quote.accessSurchargeNZD.toLocaleString('en-NZ', { maximumFractionDigits: 0 })}
+                    ${(quote.accessSurchargeNZD + quote.leadRemovalCostNZD + quote.coastalSurchargeCostNZD).toLocaleString('en-NZ', { maximumFractionDigits: 0 })}
+                  </p>
+                </div>
+              )}
+
+              {(quote.soffisFasciasCostNZD > 0 || quote.joineryWorkCostNZD > 0) && (
+                <div className="bg-white rounded-lg p-4 border border-slate-100 md:col-span-2">
+                  <p className="text-xs font-medium mb-1" style={{ color: '#94a3b8' }}>
+                    Additional Works (Trim/Joinery)
+                  </p>
+                  <p className="text-xl font-bold" style={{ color: '#0f172a' }}>
+                    ${(quote.soffisFasciasCostNZD + quote.joineryWorkCostNZD).toLocaleString('en-NZ', { maximumFractionDigits: 0 })}
                   </p>
                 </div>
               )}
