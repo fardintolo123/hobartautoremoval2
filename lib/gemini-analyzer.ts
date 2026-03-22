@@ -24,7 +24,7 @@ interface AnalysisPromptOptions {
 
 class GeminiVisionAnalyzer {
   private apiKey: string
-  private modelName = 'gemini-3-flash'
+  private modelName = 'gemini-2.5-flash'
 
   constructor(apiKey: string) {
     this.apiKey = apiKey
