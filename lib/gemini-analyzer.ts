@@ -7,6 +7,9 @@ import { GeminiVisionAnalysis, ConditionLevel, NZ_PRICING_2026 } from './types'
  * to extract painting-relevant information and classify condition levels
  */
 
+let cachedGenerateContentModel: string | null = null
+let cachedGenerateContentModelPromise: Promise<string> | null = null
+
 interface GeminiResponse {
   candidates: Array<{
     content: {
@@ -24,10 +27,79 @@ interface AnalysisPromptOptions {
 
 class GeminiVisionAnalyzer {
   private apiKey: string
-  private modelName = 'gemini-2.5-flash-lite'
 
   constructor(apiKey: string) {
     this.apiKey = apiKey
+  }
+
+  /**
+   * Resolve a model name that is actually supported for `generateContent` on this API version.
+   * Uses `models.list` so we avoid hardcoding retired/unsupported model names.
+   */
+  private async getGenerateContentModel(): Promise<string> {
+    if (cachedGenerateContentModel) return cachedGenerateContentModel
+    if (cachedGenerateContentModelPromise) return cachedGenerateContentModelPromise
+
+    cachedGenerateContentModelPromise = (async () => {
+      const listResp = await fetch('https://generativelanguage.googleapis.com/v1beta/models', {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-goog-api-key': this.apiKey,
+        },
+      })
+
+      if (!listResp.ok) {
+        const raw = await listResp.text().catch(() => '')
+        throw new Error(
+          `Failed to list Gemini models: ${listResp.status} ${listResp.statusText} body=${raw}`
+        )
+      }
+
+      const listData: any = await listResp.json()
+      const models: any[] = listData?.models ?? []
+
+      const supportsGenerateContent = (m: any): boolean => {
+        const methods =
+          m?.supportedGenerationMethods ??
+          m?.supported_generation_methods ??
+          m?.supportedMethods ??
+          m?.supported_methods
+
+        if (Array.isArray(methods)) {
+          return methods.some((x) => String(x).toLowerCase().includes('generatecontent'))
+        }
+
+        // Fallback: inspect the model metadata blob for the method string.
+        return JSON.stringify(m ?? {}).toLowerCase().includes('generatecontent')
+      }
+
+      const candidates = models
+        .map((m) => {
+          const fullName: string | undefined = m?.name
+          const slug = fullName?.split('/').pop() ?? ''
+          return { m, slug, fullName }
+        })
+        .filter((x) => x.slug && supportsGenerateContent(x.m))
+
+      if (candidates.length === 0) {
+        console.error('❌ No models found that support generateContent:', listData)
+        throw new Error('No Gemini models support generateContent for v1beta')
+      }
+
+      // Prefer "flash" variants if available (faster/cheaper), otherwise pick the first supported model.
+      candidates.sort((a, b) => {
+        const aScore = (a.slug.includes('flash') ? 10 : 0) + (a.slug.includes('latest') ? 5 : 0)
+        const bScore = (b.slug.includes('flash') ? 10 : 0) + (b.slug.includes('latest') ? 5 : 0)
+        return bScore - aScore
+      })
+
+      cachedGenerateContentModel = candidates[0].slug
+      console.log('✅ Resolved Gemini generateContent model:', cachedGenerateContentModel)
+      return cachedGenerateContentModel
+    })()
+
+    return cachedGenerateContentModelPromise
   }
 
   /**
@@ -108,8 +180,11 @@ If image doesn't show a house exterior, respond with:
   async analyzeImage(imageBase64: string, options: AnalysisPromptOptions = {}): Promise<GeminiVisionAnalysis> {
     try {
       const prompt = this.buildAnalysisPrompt(options)
+      const model = await this.getGenerateContentModel()
 
-      const response = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent', {
+      const response = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`,
+        {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -132,7 +207,8 @@ If image doesn't show a house exterior, respond with:
             },
           ],
         }),
-      })
+        }
+      )
 
       if (!response.ok) {
         const rawError = await response.text().catch(() => '')
@@ -192,8 +268,11 @@ If image doesn't show a house exterior, respond with:
   async analyzeImageUrl(imageUrl: string, options: AnalysisPromptOptions = {}): Promise<GeminiVisionAnalysis> {
     try {
       const prompt = this.buildAnalysisPrompt(options)
+      const model = await this.getGenerateContentModel()
 
-      const response = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent', {
+      const response = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`,
+        {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -216,7 +295,8 @@ If image doesn't show a house exterior, respond with:
             },
           ],
         }),
-      })
+        }
+      )
 
       if (!response.ok) {
         const rawError = await response.text().catch(() => '')
