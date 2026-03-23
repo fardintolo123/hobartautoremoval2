@@ -20,6 +20,8 @@ export interface GeminiVisionAnalysis {
   accessDifficulty: 'ground' | 'single-ladder' | 'complex-scaffold'
   recommendations: string[]
   confidence: number
+  imageDescription?: string
+  imageSummaries?: GeminiImageSummary[]
   estimatedPriceRangeNZD?: {
     lowEstimate: number
     highEstimate: number
@@ -28,11 +30,21 @@ export interface GeminiVisionAnalysis {
   }
 }
 
+export interface GeminiImageSummary {
+  index: number
+  description: string
+  confidence: number
+  conditionLevel: ConditionLevel
+  estimatedAreaM2: number
+}
+
 export interface QuoteInput {
   userProvidedAreaM2: number
   userEstimatedHeight?: number
   userSelectedCondition?: ConditionLevel
   imagePath?: string
+  imageBase64?: string
+  imagesBase64?: string[]
   gemminiAnalysis?: GeminiVisionAnalysis
   paintSystem?: 'standard' | 'premium' | 'commercial'
   coatsRequired?: number
@@ -89,6 +101,12 @@ export interface QuoteCalculation {
     additionalWorks: number // Soffits/fascias + joinery
   }
   assumptions: string[]
+}
+
+export interface QuoteCalculationResponse extends QuoteCalculation {
+  error?: string
+  geminiAnalysis?: GeminiVisionAnalysis
+  geminiImageSummaries?: GeminiImageSummary[]
 }
 
 export const CONDITION_LEVELS: Record<ConditionLevel, ConditionClassification> = {

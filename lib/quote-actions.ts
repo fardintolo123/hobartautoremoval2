@@ -2,7 +2,7 @@
 
 import PainterQuoteEngine from './quote-engine'
 import GeminiVisionAnalyzer from './gemini-analyzer'
-import { QuoteInput, QuoteCalculation } from './types'
+import { QuoteInput, QuoteCalculationResponse } from './types'
 
 /**
  * Server-side quote calculation with Gemini image analysis
@@ -10,8 +10,8 @@ import { QuoteInput, QuoteCalculation } from './types'
  */
 
 export async function calculateQuoteWithImage(
-  input: QuoteInput & { imageBase64?: string }
-): Promise<QuoteCalculation & { error?: string }> {
+  input: QuoteInput
+): Promise<QuoteCalculationResponse> {
   try {
     const apiKey = process.env.GOOGLE_GEMINI_API_KEY
     console.log('API KEY EXISTS:', !!apiKey)
@@ -21,11 +21,23 @@ export async function calculateQuoteWithImage(
       throw new Error('GOOGLE_GEMINI_API_KEY not configured')
     }
 
-    // If image is provided, analyze it with Gemini
+    const imagePayloads = (input.imagesBase64 || []).filter(Boolean)
     if (input.imageBase64) {
+      imagePayloads.push(input.imageBase64)
+    }
+
+    // If images are provided, analyze with Gemini
+    if (imagePayloads.length > 0) {
+      if (imagePayloads.length > 5) {
+        throw new Error('Maximum 5 images are supported')
+      }
+
       console.log('📸 Starting Gemini Vision Analysis...')
       const analyzer = new GeminiVisionAnalyzer(apiKey)
-      const analysis = await analyzer.analyzeImage(input.imageBase64)
+      const analysis =
+        imagePayloads.length === 1
+          ? await analyzer.analyzeImage(imagePayloads[0])
+          : await analyzer.analyzeImages(imagePayloads)
 
       console.log('✅ Gemini Analysis Complete:', {
         area: analysis.estimatedAreaM2.toFixed(1) + ' m²',
@@ -48,7 +60,11 @@ export async function calculateQuoteWithImage(
     const engine = new PainterQuoteEngine()
     const quote = engine.calculate(input)
 
-    return quote
+    return {
+      ...quote,
+      geminiAnalysis: input.gemminiAnalysis,
+      geminiImageSummaries: input.gemminiAnalysis?.imageSummaries,
+    }
   } catch (error) {
     return {
       areaM2: 0,
@@ -79,7 +95,7 @@ export async function calculateQuoteWithImage(
 /**
  * Simple quote calculation without image (for text-only requests)
  */
-export async function calculateQuote(input: QuoteInput): Promise<QuoteCalculation & { error?: string }> {
+export async function calculateQuote(input: QuoteInput): Promise<QuoteCalculationResponse> {
   try {
     const engine = new PainterQuoteEngine()
     return engine.calculate(input)

@@ -7,7 +7,7 @@ import { Label } from '@/components/ui/label'
 import { Card } from '@/components/ui/card'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Checkbox } from '@/components/ui/checkbox'
-import { ConditionLevel, QuoteCalculation } from '@/lib/types'
+import { ConditionLevel, QuoteCalculationResponse } from '@/lib/types'
 import { calculateQuoteWithImage, calculateQuote } from '@/lib/quote-actions'
 import { Upload, Loader2, AlertCircle, CheckCircle2, DollarSign } from 'lucide-react'
 
@@ -17,10 +17,10 @@ export function QuoteCalculator() {
   const [condition, setCondition] = useState<ConditionLevel>('level2')
   const [storeys, setStoreys] = useState('1')
   const [paintSystem, setPaintSystem] = useState<'standard' | 'premium' | 'commercial'>('premium')
-  const [image, setImage] = useState<File | null>(null)
-  const [imagePreview, setImagePreview] = useState<string>('')
+  const [images, setImages] = useState<File[]>([])
+  const [imagePreviews, setImagePreviews] = useState<string[]>([])
   const [loading, setLoading] = useState(false)
-  const [quote, setQuote] = useState<QuoteCalculation | null>(null)
+  const [quote, setQuote] = useState<QuoteCalculationResponse | null>(null)
   const [error, setError] = useState<string>('')
   
   // Legal & Safety
@@ -38,16 +38,39 @@ export function QuoteCalculator() {
   
   const fileInputRef = useRef<HTMLInputElement>(null)
 
-  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (!file) return
+  const readFileAsDataUrl = (file: File): Promise<string> =>
+    new Promise((resolve, reject) => {
+      const reader = new FileReader()
+      reader.onload = (event) => resolve((event.target?.result as string) || '')
+      reader.onerror = () => reject(new Error(`Failed to read file: ${file.name}`))
+      reader.readAsDataURL(file)
+    })
 
-    setImage(file)
-    const reader = new FileReader()
-    reader.onload = (e) => {
-      setImagePreview(e.target?.result as string)
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const selectedFiles = Array.from(e.target.files || [])
+    if (selectedFiles.length === 0) return
+
+    const combined = [...images, ...selectedFiles].slice(0, 5)
+    if (images.length + selectedFiles.length > 5) {
+      setError('You can upload up to 5 images')
     }
-    reader.readAsDataURL(file)
+
+    try {
+      const previews = await Promise.all(combined.map(readFileAsDataUrl))
+      setImages(combined)
+      setImagePreviews(previews)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to load image previews')
+    } finally {
+      if (fileInputRef.current) {
+        fileInputRef.current.value = ''
+      }
+    }
+  }
+
+  const removeImageAt = (index: number) => {
+    setImages((prev) => prev.filter((_, idx) => idx !== index))
+    setImagePreviews((prev) => prev.filter((_, idx) => idx !== index))
   }
 
   const handleCalculate = async (e: React.FormEvent) => {
@@ -56,7 +79,7 @@ export function QuoteCalculator() {
     setLoading(true)
 
     try {
-      if (!areaM2 && !image) {
+      if (!areaM2 && images.length === 0) {
         setError('Please enter area or upload an image for analysis')
         setLoading(false)
         return
@@ -64,16 +87,18 @@ export function QuoteCalculator() {
 
       let result: any
 
-      if (image && imagePreview) {
-        // Extract base64 from data URL
-        const base64 = imagePreview.split(',')[1]
+      if (imagePreviews.length > 0) {
+        const imagesBase64 = imagePreviews
+          .map((preview) => preview.split(',')[1])
+          .filter(Boolean)
+
         result = await calculateQuoteWithImage({
           userProvidedAreaM2: areaM2 ? parseFloat(areaM2) : 0,
           userEstimatedHeight: height ? parseFloat(height) : undefined,
           userSelectedCondition: condition,
           storeyCount: parseInt(storeys),
           paintSystem,
-          imageBase64: base64,
+          imagesBase64,
           // Legal & Safety
           builtBefore1970,
           includesLeadRemoval: builtBefore1970 && includesLeadRemoval,
@@ -140,37 +165,45 @@ export function QuoteCalculator() {
               className="border-2 border-dashed rounded-lg p-6 text-center cursor-pointer hover:bg-slate-50 transition"
               onClick={() => fileInputRef.current?.click()}
             >
-              {imagePreview ? (
+              {imagePreviews.length > 0 ? (
                 <div className="space-y-3">
-                  <img
-                    src={imagePreview}
-                    alt="Preview"
-                    className="max-h-32 mx-auto rounded"
-                  />
                   <p className="text-sm font-medium" style={{ color: '#0f172a' }}>
-                    {image?.name}
+                    {images.length} image{images.length > 1 ? 's' : ''} selected
                   </p>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      setImage(null)
-                      setImagePreview('')
-                    }}
-                  >
-                    Remove
-                  </Button>
+                  <div className="grid grid-cols-2 gap-3">
+                    {imagePreviews.map((preview, idx) => (
+                      <div key={`${images[idx]?.name || 'image'}-${idx}`} className="space-y-2">
+                        <img
+                          src={preview}
+                          alt={`Preview ${idx + 1}`}
+                          className="max-h-28 mx-auto rounded"
+                        />
+                        <p className="text-xs truncate" style={{ color: '#0f172a' }}>
+                          {images[idx]?.name || `Image ${idx + 1}`}
+                        </p>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            removeImageAt(idx)
+                          }}
+                        >
+                          Remove
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               ) : (
                 <div className="space-y-2">
                   <Upload className="w-8 h-8 mx-auto" style={{ color: '#f97316' }} />
                   <p className="text-sm font-medium" style={{ color: '#0f172a' }}>
-                    Click to upload exterior photo
+                    Click to upload exterior photos
                   </p>
                   <p className="text-xs" style={{ color: '#94a3b8' }}>
-                    JPEG or PNG, max 10MB. Shows house wall/cladding.
+                    JPEG or PNG, max 10MB each, up to 5 images.
                   </p>
                 </div>
               )}
@@ -178,6 +211,7 @@ export function QuoteCalculator() {
                 ref={fileInputRef}
                 type="file"
                 accept="image/*"
+                multiple
                 onChange={handleImageUpload}
                 className="hidden"
                 disabled={loading}
@@ -464,6 +498,26 @@ export function QuoteCalculator() {
                 Subtotal (before 15% GST): ${quote.subtotalNZD.toLocaleString('en-NZ', { maximumFractionDigits: 0 })}
               </p>
             </div>
+
+            {quote.geminiImageSummaries && quote.geminiImageSummaries.length > 0 && (
+              <div className="bg-white rounded-lg p-6 border border-slate-100 space-y-3">
+                <h3 className="font-semibold" style={{ color: '#0f172a' }}>
+                  Image Analysis
+                </h3>
+                <ul className="space-y-2">
+                  {quote.geminiImageSummaries.map((summary) => (
+                    <li key={summary.index} className="text-sm space-y-1" style={{ color: '#475569' }}>
+                      <p>
+                        <strong>Image {summary.index + 1}:</strong> {summary.description}
+                      </p>
+                      <p style={{ color: '#64748b' }}>
+                        Confidence: {summary.confidence}% | Condition: {summary.conditionLevel} | Area estimate: {summary.estimatedAreaM2.toFixed(1)} m²
+                      </p>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
 
             {/* Cost Breakdown */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">

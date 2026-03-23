@@ -1,4 +1,4 @@
-import { GeminiVisionAnalysis, ConditionLevel, NZ_PRICING_2026 } from './types'
+import { GeminiVisionAnalysis, GeminiImageSummary, ConditionLevel, NZ_PRICING_2026 } from './types'
 
 /**
  * Gemini Vision Integration for Professional Painting Analysis
@@ -27,6 +27,12 @@ interface AnalysisPromptOptions {
 
 class GeminiVisionAnalyzer {
   private apiKey: string
+  private readonly conditionRank: Record<ConditionLevel, number> = {
+    level1: 1,
+    level2: 2,
+    level3: 3,
+    level4: 4,
+  }
 
   constructor(apiKey: string) {
     this.apiKey = apiKey
@@ -149,6 +155,7 @@ Calculate estimated price range (NZD):
 
 RESPONSE FORMAT (as JSON only, no markdown):
 {
+  "imageDescription": "string (1-2 short sentences describing visible exterior details and condition cues)",
   "claddingType": "string",
   "estimatedHeightM": number,
   "estimatedAreaM2": number (length × height, don't subtract windows),
@@ -245,6 +252,7 @@ If image doesn't show a house exterior, respond with:
       }
 
       return {
+        imageDescription: analysisData.imageDescription,
         claddingType: analysisData.claddingType,
         estimatedHeightM: analysisData.estimatedHeightM,
         estimatedAreaM2: analysisData.estimatedAreaM2,
@@ -332,11 +340,99 @@ If image doesn't show a house exterior, respond with:
         throw new Error(analysisData.error)
       }
 
-      return analysisData
+      return {
+        imageDescription: analysisData.imageDescription,
+        claddingType: analysisData.claddingType,
+        estimatedHeightM: analysisData.estimatedHeightM,
+        estimatedAreaM2: analysisData.estimatedAreaM2,
+        coatingFailurePercentage: analysisData.coatingFailurePercentage,
+        conditionLevel: analysisData.conditionLevel,
+        storeys: analysisData.storeys,
+        hasSecondFloor: analysisData.hasSecondFloor,
+        accessDifficulty: analysisData.accessDifficulty,
+        recommendations: analysisData.recommendations,
+        confidence: analysisData.confidence,
+        estimatedPriceRangeNZD: analysisData.estimatedPriceRangeNZD,
+      }
     } catch (error) {
       console.error('🔥 FULL ERROR:', error)
       throw new Error(`Failed to analyze image URL with Gemini: ${error instanceof Error ? error.message : String(error)}`)
     }
+  }
+
+  /**
+   * Analyze multiple images and merge into one conservative estimate.
+   * Keeps per-image summaries for UI display/debugging.
+   */
+  async analyzeImages(imagesBase64: string[], options: AnalysisPromptOptions = {}): Promise<GeminiVisionAnalysis> {
+    const successful: Array<{ index: number; analysis: GeminiVisionAnalysis }> = []
+
+    for (let i = 0; i < imagesBase64.length; i += 1) {
+      try {
+        const analysis = await this.analyzeImage(imagesBase64[i], options)
+        successful.push({ index: i, analysis })
+      } catch (error) {
+        console.warn(`⚠️ Failed image ${i + 1} analysis:`, error)
+      }
+    }
+
+    if (successful.length === 0) {
+      throw new Error('All image analyses failed')
+    }
+
+    const analyses = successful.map((item) => item.analysis)
+    const imageSummaries: GeminiImageSummary[] = successful.map((item) => ({
+      index: item.index,
+      description: item.analysis.imageDescription || 'No description returned',
+      confidence: item.analysis.confidence,
+      conditionLevel: item.analysis.conditionLevel,
+      estimatedAreaM2: item.analysis.estimatedAreaM2,
+    }))
+
+    const claddingCounts = new Map<string, number>()
+    analyses.forEach((a) => {
+      const key = (a.claddingType || 'unknown').toLowerCase()
+      claddingCounts.set(key, (claddingCounts.get(key) || 0) + 1)
+    })
+    const claddingType =
+      [...claddingCounts.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] ||
+      analyses[0].claddingType ||
+      'unknown'
+
+    const worstCondition = analyses.reduce((worst, current) =>
+      this.conditionRank[current.conditionLevel] > this.conditionRank[worst]
+        ? current.conditionLevel
+        : worst
+    , analyses[0].conditionLevel)
+
+    const maxBy = (fn: (a: GeminiVisionAnalysis) => number): number =>
+      analyses.reduce((max, current) => Math.max(max, fn(current)), fn(analyses[0]))
+
+    const recommendationSet = new Set<string>()
+    analyses.forEach((a) => (a.recommendations || []).forEach((r) => recommendationSet.add(r)))
+
+    const merged: GeminiVisionAnalysis = {
+      imageDescription: `Analyzed ${analyses.length} images. Combined exterior assessment based on all successful uploads.`,
+      imageSummaries,
+      claddingType,
+      estimatedHeightM: maxBy((a) => a.estimatedHeightM || 0),
+      estimatedAreaM2: maxBy((a) => a.estimatedAreaM2 || 0),
+      coatingFailurePercentage: maxBy((a) => a.coatingFailurePercentage || 0),
+      conditionLevel: worstCondition,
+      storeys: maxBy((a) => a.storeys || 1),
+      hasSecondFloor: analyses.some((a) => a.hasSecondFloor || a.storeys >= 2),
+      accessDifficulty: analyses.some((a) => a.accessDifficulty === 'complex-scaffold')
+        ? 'complex-scaffold'
+        : analyses.some((a) => a.accessDifficulty === 'single-ladder')
+          ? 'single-ladder'
+          : 'ground',
+      recommendations: [...recommendationSet].slice(0, 10),
+      confidence: Math.round(
+        analyses.reduce((sum, a) => sum + (a.confidence || 0), 0) / analyses.length
+      ),
+    }
+
+    return merged
   }
 
   /**
