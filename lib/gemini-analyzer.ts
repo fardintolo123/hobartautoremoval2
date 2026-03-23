@@ -135,17 +135,34 @@ If image doesn't show a house exterior, respond with:
       })
 
       if (!response.ok) {
-        throw new Error(`Gemini API error: ${response.statusText}`)
+        const rawError = await response.text().catch(() => '')
+        throw new Error(`Gemini API error: ${response.status} ${response.statusText} body=${rawError}`)
       }
 
-      const data = (await response.json()) as GeminiResponse
+      const raw = await response.text()
+      console.log('RAW RESPONSE:', raw)
 
-      if (!data.candidates?.[0]) {
-        throw new Error('No candidates in Gemini response')
+      let data: GeminiResponse
+      try {
+        data = JSON.parse(raw) as GeminiResponse
+      } catch (err) {
+        console.error('❌ Gemini response was not valid JSON:', raw)
+        throw err
       }
 
-      const textResponse = data.candidates[0].content.parts[0].text
-      const analysisData = JSON.parse(textResponse)
+      const textResponse = data?.candidates?.[0]?.content?.parts?.[0]?.text
+      if (!textResponse) {
+        console.error('❌ Unexpected Gemini response:', JSON.stringify(data, null, 2))
+        throw new Error('Invalid Gemini response format')
+      }
+
+      let analysisData: any
+      try {
+        analysisData = JSON.parse(textResponse)
+      } catch (err) {
+        console.error('❌ Gemini returned non-JSON analysis text:', textResponse)
+        throw err
+      }
 
       if (analysisData.error) {
         throw new Error(analysisData.error)
@@ -164,6 +181,7 @@ If image doesn't show a house exterior, respond with:
         confidence: analysisData.confidence,
       }
     } catch (error) {
+      console.error('🔥 FULL ERROR:', error)
       throw new Error(`Failed to analyze image with Gemini: ${error instanceof Error ? error.message : String(error)}`)
     }
   }
@@ -201,12 +219,34 @@ If image doesn't show a house exterior, respond with:
       })
 
       if (!response.ok) {
-        throw new Error(`Gemini API error: ${response.statusText}`)
+        const rawError = await response.text().catch(() => '')
+        throw new Error(`Gemini API error: ${response.status} ${response.statusText} body=${rawError}`)
       }
 
-      const data = (await response.json()) as GeminiResponse
-      const textResponse = data.candidates[0].content.parts[0].text
-      const analysisData = JSON.parse(textResponse)
+      const raw = await response.text()
+      console.log('RAW RESPONSE:', raw)
+
+      let data: GeminiResponse
+      try {
+        data = JSON.parse(raw) as GeminiResponse
+      } catch (err) {
+        console.error('❌ Gemini response was not valid JSON:', raw)
+        throw err
+      }
+
+      const textResponse = data?.candidates?.[0]?.content?.parts?.[0]?.text
+      if (!textResponse) {
+        console.error('❌ Unexpected Gemini response:', JSON.stringify(data, null, 2))
+        throw new Error('Invalid Gemini response format')
+      }
+
+      let analysisData: any
+      try {
+        analysisData = JSON.parse(textResponse)
+      } catch (err) {
+        console.error('❌ Gemini returned non-JSON analysis text:', textResponse)
+        throw err
+      }
 
       if (analysisData.error) {
         throw new Error(analysisData.error)
@@ -214,6 +254,7 @@ If image doesn't show a house exterior, respond with:
 
       return analysisData
     } catch (error) {
+      console.error('🔥 FULL ERROR:', error)
       throw new Error(`Failed to analyze image URL with Gemini: ${error instanceof Error ? error.message : String(error)}`)
     }
   }
