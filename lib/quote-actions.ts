@@ -13,7 +13,8 @@ export async function calculateQuoteWithImage(
   input: QuoteInput & { imageBase64?: string }
 ): Promise<QuoteCalculation & { error?: string }> {
   try {
-    const apiKey = 'AIzaSyDl_PYQ6Aq1Y38ZgrnXjMHnWDZMyNDyTRg'
+    const apiKey = process.env.GOOGLE_GEMINI_API_KEY
+    console.log('API KEY EXISTS:', !!apiKey)
     console.log('🔍 API Key Check:', apiKey ? '✅ FOUND' : '❌ MISSING')
     
     if (!apiKey) {
