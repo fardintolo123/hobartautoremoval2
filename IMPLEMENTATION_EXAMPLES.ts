@@ -140,11 +140,27 @@
 // console.log(description)
 
 /**
- * 6. WEBHOOK (Make.com) — image + inputs are sent from calculateQuoteWithImage
- * =============================================================================
- * See lib/quote-webhook.ts (postQuoteToWebhook). Optional response JSON can
- * include estimatedAreaM2 + conditionLevel to drive the quote engine.
+ * 6. GEMINI ANALYSIS DIRECTLY
+ * ==========================
  */
+
+// import GeminiVisionAnalyzer from '@/lib/gemini-analyzer'
+
+// const analyzer = new GeminiVisionAnalyzer(process.env.GOOGLE_GEMINI_API_KEY!)
+
+// // Analyze image
+// const analysis = await analyzer.analyzeImage(base64Image)
+// console.log(`Cladding: ${analysis.claddingType}`)
+// console.log(`Area: ${analysis.estimatedAreaM2}m²`)
+// console.log(`Condition: ${analysis.conditionLevel}`)
+// console.log(`Coating failure: ${analysis.coatingFailurePercentage}%`)
+
+// // Validate confidence
+// if (analyzer.validateConfidence(analysis, 70)) {
+//   console.log('High confidence analysis')
+// } else {
+//   console.log('Low confidence - may need manual review')
+// }
 
 // // Get surcharge recommendation
 // const surcharge = analyzer.recommendAccessSurcharge(analysis)

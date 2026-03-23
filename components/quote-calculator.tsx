@@ -74,7 +74,6 @@ export function QuoteCalculator() {
           storeyCount: parseInt(storeys),
           paintSystem,
           imageBase64: base64,
-          imageFileName: image?.name,
           // Legal & Safety
           builtBefore1970,
           includesLeadRemoval: builtBefore1970 && includesLeadRemoval,
@@ -135,7 +134,7 @@ export function QuoteCalculator() {
           {/* Image Upload */}
           <div className="space-y-3">
             <Label className="text-sm font-medium" style={{ color: '#0f172a' }}>
-              Upload a photo (optional)
+              Upload Photo (Optional - For AI Analysis)
             </Label>
             <div
               className="border-2 border-dashed rounded-lg p-6 text-center cursor-pointer hover:bg-slate-50 transition"

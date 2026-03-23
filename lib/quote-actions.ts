@@ -1,41 +1,49 @@
 'use server'
 
 import PainterQuoteEngine from './quote-engine'
-import { postQuoteToWebhook } from './quote-webhook'
+import GeminiVisionAnalyzer from './gemini-analyzer'
 import { QuoteInput, QuoteCalculation } from './types'
 
 /**
- * Server-side quote calculation. When an image is included, it is sent with all
- * inputs to the Make.com webhook (see lib/quote-webhook.ts).
+ * Server-side quote calculation with Gemini image analysis
+ * This runs on the backend to keep the API key secure
  */
 
 export async function calculateQuoteWithImage(
-  input: QuoteInput & { imageBase64?: string; imageFileName?: string }
+  input: QuoteInput & { imageBase64?: string }
 ): Promise<QuoteCalculation & { error?: string }> {
   try {
+    const apiKey = 'AIzaSyDl_PYQ6Aq1Y38ZgrnXjMHnWDZMyNDyTRg'
+    console.log('🔍 API Key Check:', apiKey ? '✅ FOUND' : '❌ MISSING')
+    
+    if (!apiKey) {
+      throw new Error('GOOGLE_GEMINI_API_KEY not configured')
+    }
+
+    // If image is provided, analyze it with Gemini
     if (input.imageBase64) {
-      console.log('📸 Sending quote image and inputs to webhook...')
-      const analysis = await postQuoteToWebhook(input)
-      if (analysis) {
-        input.gemminiAnalysis = analysis
-        console.log('✅ Webhook returned analysis fields for quote:', {
-          area: analysis.estimatedAreaM2.toFixed(1) + ' m²',
-          condition: analysis.conditionLevel,
-        })
-      } else {
-        console.log('ℹ️ Webhook OK; using form inputs for quote (no analysis JSON in response).')
+      console.log('📸 Starting Gemini Vision Analysis...')
+      const analyzer = new GeminiVisionAnalyzer(apiKey)
+      const analysis = await analyzer.analyzeImage(input.imageBase64)
+
+      console.log('✅ Gemini Analysis Complete:', {
+        area: analysis.estimatedAreaM2.toFixed(1) + ' m²',
+        height: analysis.estimatedHeightM?.toFixed(1) + ' m',
+        condition: analysis.conditionLevel,
+        storeys: analysis.storeys,
+        confidence: analysis.confidence + '%',
+        priceRange: (analysis as any).estimatedPriceRangeNZD,
+      })
+
+      // Check confidence
+      if (!analyzer.validateConfidence(analysis, 70)) {
+        console.warn(`⚠️ Low confidence analysis: ${analysis.confidence}%`)
       }
+
+      input.gemminiAnalysis = analysis
     }
 
-    if (
-      (!input.userProvidedAreaM2 || input.userProvidedAreaM2 <= 0) &&
-      !input.gemminiAnalysis
-    ) {
-      throw new Error(
-        'Please enter wall area (m²), or configure your Make.com scenario to return JSON with estimatedAreaM2 and conditionLevel when using a photo without area.'
-      )
-    }
-
+    // Calculate quote using the engine
     const engine = new PainterQuoteEngine()
     const quote = engine.calculate(input)
 
