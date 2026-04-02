@@ -15,14 +15,14 @@ const dmSerif = DM_Serif_Display({
 })
 
 export const metadata: Metadata = {
-  title: 'HomePainters.co.nz — Precise Painting Estimates in 60 Seconds',
+  title: 'Hobart Auto Removal — Quick Cash For Cars with Free Car Removal',
   description:
-    'Auckland\'s most precise residential painters. Get an AI-powered estimate instantly. Led by Liam \'The Detail\' Walsh. Fixed-price quotes, 5-year no-peel warranty.',
-  keywords: 'house painters Auckland, interior painting NZ, exterior painting Auckland, painting estimate, HomePainters',
+    'Get cash for your unwanted car in Hobart. Free car removal, same-day pickup, instant payment. We buy all makes, models, and conditions. Call 0419 331 319 for a quote.',
+  keywords: 'cash for cars Hobart, car removal Hobart, car wreckers, scrap car removal Tasmania, instant car removal',
   openGraph: {
-    title: 'HomePainters.co.nz — Precise Painting Estimates in 60 Seconds',
-    description: 'Auckland\'s most precise residential painters. AI-powered estimates, fixed-price quotes, 5-year warranty.',
-    locale: 'en_NZ',
+    title: 'Hobart Auto Removal — Quick Cash For Cars with Free Car Removal',
+    description: 'Get quick cash for unwanted cars in Hobart. Free pickup, same-day removal, instant payment for all vehicle conditions.',
+    locale: 'en_AU',
     type: 'website',
   },
 }
@@ -33,7 +33,7 @@ export default function RootLayout({
   children: React.ReactNode
 }>) {
   return (
-    <html lang="en-NZ">
+    <html lang="en-AU">
       <body className={`${inter.variable} ${dmSerif.variable} font-sans antialiased`}>
         {children}
         <Analytics />
