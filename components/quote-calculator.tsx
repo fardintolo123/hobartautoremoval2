@@ -149,17 +149,17 @@ export function QuoteCalculator() {
         <form onSubmit={handleCalculate} className="space-y-6">
           <div>
             <h3 className="text-lg font-semibold mb-4" style={{ color: '#0f172a' }}>
-              Professional Paint Quote Calculator
+              Quick Car Valuation Calculator
             </h3>
             <p className="text-sm" style={{ color: '#64748b' }}>
-              Based on 2026 NZ market rates. Uses professional "Man-Hour" algorithm.
+              Get an instant estimate for your car. Based on 2026 Australian market rates.
             </p>
           </div>
 
           {/* Image Upload */}
           <div className="space-y-3">
             <Label className="text-sm font-medium" style={{ color: '#0f172a' }}>
-              Upload Photo (Optional - For AI Analysis)
+              Upload Car Photos (Optional - For Better Quote)
             </Label>
             <div
               className="border-2 border-dashed rounded-lg p-6 text-center cursor-pointer hover:bg-slate-50 transition"
@@ -198,12 +198,12 @@ export function QuoteCalculator() {
                 </div>
               ) : (
                 <div className="space-y-2">
-                  <Upload className="w-8 h-8 mx-auto" style={{ color: '#f97316' }} />
+                  <Upload className="w-8 h-8 mx-auto" style={{ color: '#1e40af' }} />
                   <p className="text-sm font-medium" style={{ color: '#0f172a' }}>
-                    Click to upload exterior photos
+                    Click to upload car photos
                   </p>
                   <p className="text-xs" style={{ color: '#94a3b8' }}>
-                    JPEG or PNG, max 10MB each, up to 5 images.
+                    JPEG or PNG, max 10MB each, up to 5 images. Include overall view and any damage.
                   </p>
                 </div>
               )}
@@ -219,39 +219,43 @@ export function QuoteCalculator() {
             </div>
           </div>
 
-          {/* Area Input */}
+          {/* Vehicle Details */}
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="area" className="text-sm font-medium" style={{ color: '#0f172a' }}>
-                Wall Area (m²)
+                Vehicle Year
               </Label>
               <Input
                 id="area"
                 type="number"
-                placeholder="e.g., 45.5"
+                placeholder="e.g., 2015"
                 value={areaM2}
                 onChange={(e) => setAreaM2(e.target.value)}
-                step="0.1"
+                min="1990"
+                max="2026"
                 className="h-11 border-slate-200"
               />
               <p className="text-xs" style={{ color: '#94a3b8' }}>
-                Length × Height (don't subtract windows)
+                Manufacturing year
               </p>
             </div>
 
             <div className="space-y-2">
               <Label htmlFor="height" className="text-sm font-medium" style={{ color: '#0f172a' }}>
-                Height (m) - Optional
+                Engine Size (L) - Optional
               </Label>
               <Input
                 id="height"
                 type="number"
-                placeholder="e.g., 6"
+                placeholder="e.g., 2.0"
                 value={height}
                 onChange={(e) => setHeight(e.target.value)}
                 step="0.1"
                 className="h-11 border-slate-200"
               />
+              <p className="text-xs" style={{ color: '#94a3b8' }}>
+                For scrap value calculation
+              </p>
             </div>
           </div>
 
@@ -259,62 +263,62 @@ export function QuoteCalculator() {
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="condition" className="text-sm font-medium" style={{ color: '#0f172a' }}>
-                Paint Condition
+                Vehicle Condition
               </Label>
               <Select value={condition} onValueChange={(v) => setCondition(v as ConditionLevel)}>
                 <SelectTrigger className="h-11 border-slate-200">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="level1">Level 1: Wash & Paint</SelectItem>
-                  <SelectItem value="level2">Level 2: Standard Prep</SelectItem>
-                  <SelectItem value="level3">Level 3: Heavy Prep</SelectItem>
-                  <SelectItem value="level4">Level 4: Full Strip</SelectItem>
+                  <SelectItem value="level1">Excellent - Running, minimal damage</SelectItem>
+                  <SelectItem value="level2">Good - Running with some wear</SelectItem>
+                  <SelectItem value="level3">Fair - Non-running or heavy damage</SelectItem>
+                  <SelectItem value="level4">Poor - Wrecked or scrap only</SelectItem>
                 </SelectContent>
               </Select>
             </div>
 
             <div className="space-y-2">
               <Label htmlFor="storeys" className="text-sm font-medium" style={{ color: '#0f172a' }}>
-                Building Height
+                Body Type
               </Label>
               <Select value={storeys} onValueChange={setStoreys}>
                 <SelectTrigger className="h-11 border-slate-200">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="1">Single Storey</SelectItem>
-                  <SelectItem value="2">Two Storey</SelectItem>
-                  <SelectItem value="3">3+ Storey</SelectItem>
+                  <SelectItem value="1">Sedan/Coupe</SelectItem>
+                  <SelectItem value="2">SUV/Wagon</SelectItem>
+                  <SelectItem value="3">Truck/Van</SelectItem>
                 </SelectContent>
               </Select>
             </div>
           </div>
 
-          {/* Paint System */}
+          {/* Transmission */}
           <div className="space-y-2">
             <Label htmlFor="system" className="text-sm font-medium" style={{ color: '#0f172a' }}>
-              Paint System (NZ Market)
+              Transmission Type
             </Label>
             <Select value={paintSystem} onValueChange={(v) => setPaintSystem(v as any)}>
               <SelectTrigger className="h-11 border-slate-200">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="standard">Standard (1x Primer + 2x Coats)</SelectItem>
-                <SelectItem value="premium">Premium - Resene/Dulux (1x Primer + 2x Coats)</SelectItem>
-                <SelectItem value="commercial">Commercial Grade</SelectItem>
+                <SelectItem value="standard">Manual</SelectItem>
+                <SelectItem value="premium">Automatic</SelectItem>
+                <SelectItem value="commercial">CVT/Other</SelectItem>
               </SelectContent>
             </Select>
           </div>
 
-          {/* NZ COMPLIANCE & HIDDEN COSTS SECTION */}
+          {/* CAR DETAILS SECTION */}
           <div className="border-t border-slate-200 pt-6 space-y-6">
             <h4 className="font-semibold text-sm" style={{ color: '#0f172a' }}>
-              Additional Site Details (NZ Compliance & Hidden Costs)
+              Additional Vehicle Details
             </h4>
 
-            {/* Lead Paint Testing */}
+            {/* Registered */}
             <div className="space-y-3">
               <div className="flex items-center gap-3">
                 <Checkbox
@@ -326,7 +330,7 @@ export function QuoteCalculator() {
                   }}
                 />
                 <Label htmlFor="pre1970" className="text-sm font-medium cursor-pointer" style={{ color: '#0f172a' }}>
-                  Home built before 1970? (Possible lead paint)
+                  Currently Registered?
                 </Label>
               </div>
               {builtBefore1970 && (
@@ -337,16 +341,16 @@ export function QuoteCalculator() {
                     onCheckedChange={(checked) => setIncludesLeadRemoval(checked as boolean)}
                   />
                   <Label htmlFor="leadRemoval" className="text-sm cursor-pointer flex flex-col gap-1" style={{ color: '#0f172a' }}>
-                    <span>Include lead testing & safe removal</span>
+                    <span>Registration in good standing</span>
                     <span className="text-xs font-normal" style={{ color: '#94a3b8' }}>
-                      WorkSafe requirement: Testing ($400) + Wet-strip removal ($15-$50/m²)
+                      May affect valuation
                     </span>
                   </Label>
                 </div>
               )}
             </div>
 
-            {/* Coastal Location */}
+            {/* Accidents */}
             <div className="space-y-3">
               <div className="flex items-center gap-3">
                 <Checkbox
@@ -355,15 +359,15 @@ export function QuoteCalculator() {
                   onCheckedChange={(checked) => setWithinCoastal500m(checked as boolean)}
                 />
                 <Label htmlFor="coastal" className="text-sm font-medium cursor-pointer flex flex-col gap-1" style={{ color: '#0f172a' }}>
-                  <span>Within 500m of coast?</span>
+                  <span>Has Accident History?</span>
                   <span className="text-xs font-normal" style={{ color: '#94a3b8' }}>
-                    Salt wash prep + high-build primer + extra coat
+                    May result in lower offer
                   </span>
                 </Label>
               </div>
             </div>
 
-            {/* Soffits & Fascias */}
+            {/* Mechanical Issues */}
             <div className="space-y-3">
               <div className="flex items-center gap-3">
                 <Checkbox
@@ -375,34 +379,33 @@ export function QuoteCalculator() {
                   }}
                 />
                 <Label htmlFor="soffit" className="text-sm font-medium cursor-pointer" style={{ color: '#0f172a' }}>
-                  Include Soffits & Fascias?
+                  Known Mechanical Issues?
                 </Label>
               </div>
               {includesSoffitsFascias && (
                 <div className="ml-8 space-y-2">
                   <Label htmlFor="soffit-area" className="text-sm" style={{ color: '#64748b' }}>
-                    Soffits & Fascias Area (m²)
+                    Describe Issues
                   </Label>
                   <Input
                     id="soffit-area"
-                    type="number"
-                    placeholder="e.g., 8"
+                    type="text"
+                    placeholder="e.g., Engine knocking, gearbox slips..."
                     value={soffisFasciasAreaM2}
                     onChange={(e) => setSoffisFasciasAreaM2(e.target.value)}
-                    step="0.1"
                     className="h-10 border-slate-200"
                   />
                   <p className="text-xs" style={{ color: '#94a3b8' }}>
-                    Detailed trim work: 0.6 hrs/m² (vs 0.2 hrs/m² for walls)
+                    We buy cars in any condition - be honest for accurate quote
                   </p>
                 </div>
               )}
             </div>
 
-            {/* Joinery Work */}
+            {/* Mileage */}
             <div className="space-y-3">
               <Label className="text-sm font-medium" style={{ color: '#0f172a' }}>
-                Window & Door Joinery Type
+                Mileage (km)
               </Label>
               <Select value={joineryType} onValueChange={(v) => {
                 setJoineryType(v as any)
@@ -412,32 +415,12 @@ export function QuoteCalculator() {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="none">None / Already Included</SelectItem>
-                  <SelectItem value="timber">Timber Frames (2.5 hrs each)</SelectItem>
-                  <SelectItem value="aluminum">Aluminum (0.3 hrs each)</SelectItem>
-                  <SelectItem value="mixed">Mixed Timber & Aluminum</SelectItem>
+                  <SelectItem value="none">Under 100,000 km</SelectItem>
+                  <SelectItem value="timber">100,000 - 200,000 km</SelectItem>
+                  <SelectItem value="aluminum">200,000+ km</SelectItem>
+                  <SelectItem value="mixed">Unknown</SelectItem>
                 </SelectContent>
               </Select>
-
-              {joineryType !== 'none' && (
-                <div className="ml-0 space-y-2">
-                  <Label htmlFor="frame-count" className="text-sm" style={{ color: '#64748b' }}>
-                    Number of Frames (Windows/Doors)
-                  </Label>
-                  <Input
-                    id="frame-count"
-                    type="number"
-                    placeholder="e.g., 12"
-                    value={numTimberFrames}
-                    onChange={(e) => setNumTimberFrames(e.target.value)}
-                    step="1"
-                    className="h-10 border-slate-200"
-                  />
-                  <p className="text-xs" style={{ color: '#94a3b8' }}>
-                    12 timber frames can add 30+ hours. Aluminum is much faster.
-                  </p>
-                </div>
-              )}
             </div>
           </div>
 
@@ -453,7 +436,7 @@ export function QuoteCalculator() {
           <Button
             type="submit"
             disabled={loading}
-            className="w-full h-12 font-semibold text-white bg-[#f97316] hover:bg-[#ea6c0a] gap-2"
+            className="w-full h-12 font-semibold text-white bg-[#1e40af] hover:bg-[#1e3a8a] gap-2"
           >
             {loading ? (
               <>
@@ -463,7 +446,7 @@ export function QuoteCalculator() {
             ) : (
               <>
                 <DollarSign className="w-4 h-4" />
-                Calculate Quote
+                Get Car Quote
               </>
             )}
           </Button>
@@ -477,10 +460,10 @@ export function QuoteCalculator() {
             <div className="flex items-start justify-between gap-4">
               <div>
                 <h2 className="text-2xl font-bold" style={{ color: '#0f172a' }}>
-                  Estimated Quote
+                  Your Car Quote
                 </h2>
                 <p className="text-sm mt-1" style={{ color: '#64748b' }}>
-                  Professional NZ painter estimate
+                  Instant valuation for your vehicle
                 </p>
               </div>
               <CheckCircle2 className="w-8 h-8 text-green-600 flex-shrink-0 mt-1" />
@@ -489,20 +472,20 @@ export function QuoteCalculator() {
             {/* Main Price */}
             <div className="bg-white rounded-lg p-6 border border-slate-100">
               <p className="text-sm font-medium mb-2" style={{ color: '#94a3b8' }}>
-                TOTAL ESTIMATE (Inc. GST)
+                ESTIMATED CASH OFFER
               </p>
-              <p className="text-5xl font-bold" style={{ color: '#f97316' }}>
+              <p className="text-5xl font-bold" style={{ color: '#1e40af' }}>
                 ${quote.totalNZD.toLocaleString('en-NZ', { maximumFractionDigits: 0 })}
               </p>
               <p className="text-xs mt-2" style={{ color: '#94a3b8' }}>
-                Subtotal (before 15% GST): ${quote.subtotalNZD.toLocaleString('en-NZ', { maximumFractionDigits: 0 })}
+                Offer based on vehicle details and condition assessment
               </p>
             </div>
 
             {quote.geminiImageSummaries && quote.geminiImageSummaries.length > 0 && (
               <div className="bg-white rounded-lg p-6 border border-slate-100 space-y-3">
                 <h3 className="font-semibold" style={{ color: '#0f172a' }}>
-                  Image Analysis
+                  Photo Analysis
                 </h3>
                 <ul className="space-y-2">
                   {quote.geminiImageSummaries.map((summary) => (
