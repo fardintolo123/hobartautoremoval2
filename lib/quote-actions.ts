@@ -1,6 +1,6 @@
 'use server'
 
-import PainterQuoteEngine from './quote-engine'
+import CarRemovalQuoteEngine from './quote-engine'
 import GeminiVisionAnalyzer from './gemini-analyzer'
 import { QuoteInput, QuoteCalculationResponse } from './types'
 
@@ -16,15 +16,13 @@ export async function calculateQuoteWithImage(
     const apiKey = process.env.GOOGLE_GEMINI_API_KEY
     console.log('API KEY EXISTS:', !!apiKey)
     console.log('🔍 API Key Check:', apiKey ? '✅ FOUND' : '❌ MISSING')
-    
+
     if (!apiKey) {
       throw new Error('GOOGLE_GEMINI_API_KEY not configured')
     }
 
     const imagePayloads = (input.imagesBase64 || []).filter(Boolean)
-    if (input.imageBase64) {
-      imagePayloads.push(input.imageBase64)
-    }
+    let geminiAnalysis: any = null
 
     // If images are provided, analyze with Gemini
     if (imagePayloads.length > 0) {
@@ -34,58 +32,52 @@ export async function calculateQuoteWithImage(
 
       console.log('📸 Starting Gemini Vision Analysis...')
       const analyzer = new GeminiVisionAnalyzer(apiKey)
-      const analysis =
+      geminiAnalysis =
         imagePayloads.length === 1
           ? await analyzer.analyzeImage(imagePayloads[0])
           : await analyzer.analyzeImages(imagePayloads)
 
       console.log('✅ Gemini Analysis Complete:', {
-        area: analysis.estimatedAreaM2.toFixed(1) + ' m²',
-        height: analysis.estimatedHeightM?.toFixed(1) + ' m',
-        condition: analysis.conditionLevel,
-        storeys: analysis.storeys,
-        confidence: analysis.confidence + '%',
-        priceRange: (analysis as any).estimatedPriceRangeNZD,
+        vehicleType: geminiAnalysis.vehicleType,
+        year: geminiAnalysis.estimatedYear,
+        condition: geminiAnalysis.conditionLevel,
+        confidence: geminiAnalysis.confidence + '%',
+        priceRange: (geminiAnalysis as any).estimatedQuoteAUD,
       })
 
       // Check confidence
-      if (!analyzer.validateConfidence(analysis, 70)) {
-        console.warn(`⚠️ Low confidence analysis: ${analysis.confidence}%`)
+      if (!analyzer.validateConfidence(geminiAnalysis, 70)) {
+        console.warn(`⚠️ Low confidence analysis: ${geminiAnalysis.confidence}%`)
       }
-
-      input.gemminiAnalysis = analysis
     }
 
     // Calculate quote using the engine
-    const engine = new PainterQuoteEngine()
+    const engine = new CarRemovalQuoteEngine()
     const quote = engine.calculate(input)
 
     return {
       ...quote,
-      geminiAnalysis: input.gemminiAnalysis,
-      geminiImageSummaries: input.gemminiAnalysis?.imageSummaries,
+      geminiAnalysis,
+      geminiImageSummaries: geminiAnalysis?.imageSummaries,
     }
   } catch (error) {
     return {
-      areaM2: 0,
-      prepFactor: {
-        baseHoursPerM2: 0,
-        conditionMultiplier: 0,
-        totalPrepHours: 0,
-        prepCostNZD: 0,
-      },
-      laborHours: 0,
-      laborCostNZD: 0,
-      accessSurchargeNZD: 0,
-      materialsCostNZD: 0,
-      leadRemovalCostNZD: 0,
-      coastalSurchargeCostNZD: 0,
-      soffisFasciasCostNZD: 0,
-      joineryWorkCostNZD: 0,
-      subtotalNZD: 0,
-      gstNZD: 0,
-      totalNZD: 0,
-      breakdown: { prep: 0, labor: 0, materials: 0, access: 0, compliance: 0, additionalWorks: 0 },
+      vehicleType: 'other',
+      vehicleYear: 0,
+      vehicleCondition: 'fair',
+      locationPostcode: '',
+      baseFeeAUD: 0,
+      conditionAdjustmentAUD: 0,
+      conditionMultiplier: 1,
+      locationSurchargeAUD: 0,
+      hazardousMaterialsFeeAUD: 0,
+      fluidDrainingFeeAUD: 0,
+      internalRemovalFeeAUD: 0,
+      disassemblyFeeAUD: 0,
+      towingFeeAUD: 0,
+      subtotalAUD: 0,
+      gstAUD: 0,
+      totalAUD: 0,
       assumptions: [],
       error: error instanceof Error ? error.message : 'Unknown error occurred',
     }
@@ -97,29 +89,30 @@ export async function calculateQuoteWithImage(
  */
 export async function calculateQuote(input: QuoteInput): Promise<QuoteCalculationResponse> {
   try {
-    const engine = new PainterQuoteEngine()
-    return engine.calculate(input)
+    const engine = new CarRemovalQuoteEngine()
+    const quote = engine.calculate(input)
+
+    return {
+      ...quote,
+    }
   } catch (error) {
     return {
-      areaM2: 0,
-      prepFactor: {
-        baseHoursPerM2: 0,
-        conditionMultiplier: 0,
-        totalPrepHours: 0,
-        prepCostNZD: 0,
-      },
-      laborHours: 0,
-      laborCostNZD: 0,
-      accessSurchargeNZD: 0,
-      materialsCostNZD: 0,
-      leadRemovalCostNZD: 0,
-      coastalSurchargeCostNZD: 0,
-      soffisFasciasCostNZD: 0,
-      joineryWorkCostNZD: 0,
-      subtotalNZD: 0,
-      gstNZD: 0,
-      totalNZD: 0,
-      breakdown: { prep: 0, labor: 0, materials: 0, access: 0, compliance: 0, additionalWorks: 0 },
+      vehicleType: 'other',
+      vehicleYear: 0,
+      vehicleCondition: 'fair',
+      locationPostcode: '',
+      baseFeeAUD: 0,
+      conditionAdjustmentAUD: 0,
+      conditionMultiplier: 1,
+      locationSurchargeAUD: 0,
+      hazardousMaterialsFeeAUD: 0,
+      fluidDrainingFeeAUD: 0,
+      internalRemovalFeeAUD: 0,
+      disassemblyFeeAUD: 0,
+      towingFeeAUD: 0,
+      subtotalAUD: 0,
+      gstAUD: 0,
+      totalAUD: 0,
       assumptions: [],
       error: error instanceof Error ? error.message : 'Unknown error occurred',
     }

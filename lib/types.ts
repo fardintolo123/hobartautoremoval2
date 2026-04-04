@@ -1,28 +1,29 @@
-// Painting quote system types for NZ market (2026)
+// Car removal quote system types for Tasmania market (2026)
 
-export type ConditionLevel = 'level1' | 'level2' | 'level3' | 'level4'
+export type VehicleCondition = 'excellent' | 'good' | 'fair' | 'poor' | 'nonrunning' | 'damaged'
+export type VehicleType = 'sedan' | 'suv' | 'truck' | 'van' | 'ute' | 'motorcycle' | 'caravan' | 'other'
 
-export interface ConditionClassification {
-  level: ConditionLevel
+export interface VehicleConditionClassification {
+  level: VehicleCondition
   description: string
-  prepHoursPerM2: number
   examples: string[]
+  conditionMultiplier: number
 }
 
 export interface GeminiVisionAnalysis {
-  claddingType: string
-  estimatedHeightM: number
-  estimatedAreaM2: number
-  coatingFailurePercentage: number
-  conditionLevel: ConditionLevel
-  storeys: number
-  hasSecondFloor: boolean
-  accessDifficulty: 'ground' | 'single-ladder' | 'complex-scaffold'
+  vehicleType: VehicleType
+  estimatedYear: number
+  estimatedMileage: number
+  conditionLevel: VehicleCondition
+  damageAssessment: string
+  hasRust: boolean
+  hasFluidLeaks: boolean
+  hazardousComponents: string[]
   recommendations: string[]
   confidence: number
   imageDescription?: string
   imageSummaries?: GeminiImageSummary[]
-  estimatedPriceRangeNZD?: {
+  estimatedQuoteAUD?: {
     lowEstimate: number
     highEstimate: number
     midpointEstimate: number
@@ -34,72 +35,56 @@ export interface GeminiImageSummary {
   index: number
   description: string
   confidence: number
-  conditionLevel: ConditionLevel
-  estimatedAreaM2: number
+  conditionLevel: VehicleCondition
+  damageLevel: string
 }
 
 export interface QuoteInput {
-  userProvidedAreaM2: number
-  userEstimatedHeight?: number
-  userSelectedCondition?: ConditionLevel
-  imagePath?: string
-  imageBase64?: string
+  vehicleType: VehicleType
+  vehicleYear: number
+  vehicleCondition: VehicleCondition
+  locationPostcode: string
+  mileage?: number
   imagesBase64?: string[]
-  gemminiAnalysis?: GeminiVisionAnalysis
-  paintSystem?: 'standard' | 'premium' | 'commercial'
-  coatsRequired?: number
-  accessMethod?: 'ground' | 'single-ladder' | 'scaffolding'
-  storeyCount?: number
-  
-  // Legal & Safety - NZ Compliance
-  builtBefore1970?: boolean // Lead paint testing & removal
-  includesLeadRemoval?: boolean
-  
-  // Coastal considerations
-  withinCoastal500m?: boolean // Salt wash & high-build primer required
-  
-  // Surface condition extreme
-  hasExtensiveFlaking?: boolean // Full strip (bubbling/flaking to wood)
-  
-  // Additional items
-  includesSoffitsFascias?: boolean
-  soffisFasciasAreaM2?: number
-  joineryType?: 'timber' | 'aluminum' | 'mixed' | 'none' // Timber windows add 30+ hrs
-  numTimberFrames?: number
+  // Additional Services
+  hasHazardousMaterials?: boolean
+  needsFluidDraining?: boolean
+  needsInternalRemoval?: boolean
+  needsDisassembly?: boolean
+  towingDistanceKm?: number
+}
+
+export interface VehicleConditionClassification {
+  level: VehicleCondition
+  description: string
+  examples: string[]
+  conditionMultiplier: number
 }
 
 export interface PrepFactorBreakdown {
-  baseHoursPerM2: number
+  baseRemovalFee: number
   conditionMultiplier: number
-  totalPrepHours: number
-  prepCostNZD: number
+  totalAdjustedFee: number
+  removalCostAUD: number
 }
 
 export interface QuoteCalculation {
-  areaM2: number
-  prepFactor: PrepFactorBreakdown
-  laborHours: number
-  laborCostNZD: number
-  accessSurchargeNZD: number
-  materialsCostNZD: number
-  
-  // New NZ Compliance & Hidden Costs
-  leadRemovalCostNZD: number
-  coastalSurchargeCostNZD: number
-  soffisFasciasCostNZD: number
-  joineryWorkCostNZD: number
-  
-  subtotalNZD: number
-  gstNZD: number
-  totalNZD: number
-  breakdown: {
-    prep: number
-    labor: number
-    materials: number
-    access: number
-    compliance: number // Lead removal + coastal surcharge
-    additionalWorks: number // Soffits/fascias + joinery
-  }
+  vehicleType: VehicleType
+  vehicleYear: number
+  vehicleCondition: VehicleCondition
+  locationPostcode: string
+  baseFeeAUD: number
+  conditionAdjustmentAUD: number
+  conditionMultiplier: number
+  locationSurchargeAUD: number
+  hazardousMaterialsFeeAUD: number
+  fluidDrainingFeeAUD: number
+  internalRemovalFeeAUD: number
+  disassemblyFeeAUD: number
+  towingFeeAUD: number
+  subtotalAUD: number
+  gstAUD: number
+  totalAUD: number
   assumptions: string[]
 }
 
@@ -109,88 +94,81 @@ export interface QuoteCalculationResponse extends QuoteCalculation {
   geminiImageSummaries?: GeminiImageSummary[]
 }
 
-export const CONDITION_LEVELS: Record<ConditionLevel, ConditionClassification> = {
-  level1: {
-    level: 'level1',
-    description: 'Wash & Paint - Smooth surface, no fading',
-    prepHoursPerM2: 0.15,
-    examples: ['Recently painted', 'Good condition', 'Minor dust only'],
+export const VEHICLE_CONDITIONS: Record<VehicleCondition, VehicleConditionClassification> = {
+  excellent: {
+    level: 'excellent',
+    description: 'Excellent - Running, low mileage, minimal rust/damage',
+    examples: ['Recently maintained', 'Clean interior', 'Operational'],
+    conditionMultiplier: 1.0,
   },
-  level2: {
-    level: 'level2',
-    description: 'Standard Prep - Minor fading, light sanding required',
-    prepHoursPerM2: 0.25,
-    examples: ['Slight fading', 'Minor weathering', '1-3 year old paint'],
+  good: {
+    level: 'good',
+    description: 'Good - Running, moderate mileage, minor wear',
+    examples: ['Normal wear', 'Functional', '100k-150k km'],
+    conditionMultiplier: 0.9,
   },
-  level3: {
-    level: 'level3',
-    description: 'Heavy Prep - Visible peeling, needs scraping/spot priming',
-    prepHoursPerM2: 0.6,
-    examples: ['Visible peeling', 'Flaking paint', 'Coating failure', 'Weatherboard exposure'],
+  fair: {
+    level: 'fair',
+    description: 'Fair - Running but needs work, visible wear, surface rust',
+    examples: ['Higher mileage', 'Cosmetic damage', 'Needs repairs'],
+    conditionMultiplier: 0.75,
   },
-  level4: {
-    level: 'level4',
-    description: 'Full Strip - Major coating failure, needs heat-gun stripping',
-    prepHoursPerM2: 1.1,
-    examples: ['Complete failure', 'Multiple layers failing', 'Rust/mold damage'],
+  poor: {
+    level: 'poor',
+    description: 'Poor - Non-running or barely running, significant rust/damage',
+    examples: ['High mileage', 'Major damage', 'Fuel issues'],
+    conditionMultiplier: 0.5,
+  },
+  nonrunning: {
+    level: 'nonrunning',
+    description: 'Non-Running - Engine does not start, needs towing',
+    examples: ['Engine seized', 'Dead battery', 'Flat tires'],
+    conditionMultiplier: 0.4,
+  },
+  damaged: {
+    level: 'damaged',
+    description: 'Damaged - Severe structural/mechanical damage, written off',
+    examples: ['Collision', 'Fire damage', 'Flood damage'],
+    conditionMultiplier: 0.3,
   },
 }
 
-// NZ 2026 Pricing Constants
-export const NZ_PRICING_2026 = {
-  LABOR_RATE_PER_HOUR: { min: 55, mid: 65, max: 75 }, // NZD
-  MATERIAL_COST_PER_M2: { standard: 15, premium: 22, commercial: 28 }, // NZD
-  SETUP_FEE: 350, // Fixed fee for site protection, masking, setup - first day work
-  HEIGHT_SURCHARGES: {
-    under3m: 0, // Standard ladder work
-    height3to3_2m: 800, // Basic mobile tower setup for 3-3.2m heights
-    height3_2to5m: 1500, // Specialist mobile tower + higher complexity for 3.2-5m
-    height5plus: 2500, // Complex scaffolding for 5m+
-  },
-  // Crew & Timeline - Standard Residential Job
-  CREW_TIMELINE: {
-    standardCrewSize: 2, // Professional painters per team
-    productionRatePerDay: 35, // m²/day for 2-painter crew (includes prep, drying time)
-    daysPerWeek: 5, // Monday-Friday
-    bufferDaysPercent: 15, // Add 15% buffer for weather/drying (incorporated in production rate)
-  },
-  ACCESS_SURCHARGE: {
-    ground: 0,
-    singleLadder: 0,
-    twoStoreyScaffolding: { min: 2000, mid: 3500, max: 5000 },
-    complexScaffolding: { min: 5000, mid: 7500, max: 10000 },
-  },
-  APPLICATION_HOURS_PER_COAT_PER_M2: 0.2, // More realistic coating time (was 0.15)
-  
-  // Legal & Safety - NZ Compliance (Issue #1)
-  LEAD_PAINT: {
-    testingFee: 400, // Lead testing kit & lab analysis
-    removalHoursPerM2: 0.5, // Wet-strip removal is labor-intensive
-    hazmatDisposalPerLoad: 300, // Sealed waste disposal
-    costPerM2: 15, // Additional materials (primers, sealants)
+// Tasmania 2026 Car Removal Pricing Constants
+export const TASMANIA_PRICING_2026 = {
+  // Base removal fees by vehicle type (AUD)
+  BASE_REMOVAL_FEE: {
+    motorcycle: 150,
+    sedan: 300,
+    ute: 400,
+    van: 450,
+    suv: 500,
+    truck: 600,
+    caravan: 800,
+    other: 350,
   },
   
-  // Coastal Surcharge - Common in Auckland/Newcastle
-  COASTAL_SURCHARGE: {
-    saltWashPrep: 600, // Pre-wash for salt removal
-    highBuildPrimerPerM2: 8, // Thicker primer for coastal
-    additionalCoatPerM2: 5, // Salt deterioration requires extra coat
+  // Location surcharges - Tasmania regional
+  LOCATION_SURCHARGES: {
+    hobart: 0, // Base location
+    launceston: 150,
+    devonport: 200,
+    burnie: 220,
+    regional: 250,
+    remote: 400, // North west regions
   },
   
-  // Hidden Cost Items
-  SOFFITS_FASCIAS: {
-    hoursPerM2: 0.6, // More detailed work than walls
-    materialCostPerM2: { standard: 8, premium: 14, commercial: 18 }, // Different paint/finishes
-  },
-  JOINERY_WORK: {
-    timberFrame: 2.5, // Hours per frame (complex masking, cutting in, drying)
-    aluminiumFrame: 0.3, // Much faster (no absorption, spray-friendly)
-    estimatedFramesPerWindow: 0.5, // Partial doors/transom glazed areas
+  // Towing distance surcharges
+  TOWING_DISTANCE: {
+    perKm: 3.5, // Additional $3.50 per km beyond 25km radius
+    baseRadius: 25, // Free up to 25km from depot
   },
   
-  GST_RATE: 0.15,
-  DOOR_HEIGHT_M: 1.98, // Standard NZ external door for reference scaling
-  WEATHERBOARD_WIDTH_MM: 150,
+  // Hazmat & special services
+  HAZMAT_SURCHARGE: 150, // Fluids, batteries, airbags, etc.
+  FLUID_DRAINING_FEE: 75, // Proper fluid disposal
+  DISASSEMBLY_SURCHARGE: 200, // Partial removal of parts
+  INTERNAL_REMOVAL_SURCHARGE: 100, // Remove from garage/shed
+  
+  // GST Rate
+  GST_RATE: 0.1, // Australian GST 10%
 }
-
-export const CUTTING_IN_NO_SUBTRACT = true // Pro rule: Don't subtract windows/doors

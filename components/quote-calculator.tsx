@@ -7,35 +7,29 @@ import { Label } from '@/components/ui/label'
 import { Card } from '@/components/ui/card'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Checkbox } from '@/components/ui/checkbox'
-import { ConditionLevel, QuoteCalculationResponse } from '@/lib/types'
+import { VehicleType, VehicleCondition, QuoteCalculationResponse } from '@/lib/types'
 import { calculateQuoteWithImage, calculateQuote } from '@/lib/quote-actions'
-import { Upload, Loader2, AlertCircle, CheckCircle2, DollarSign } from 'lucide-react'
+import { Upload, Loader2, AlertCircle, CheckCircle2, DollarSign, Truck, MapPin } from 'lucide-react'
 
 export function QuoteCalculator() {
-  const [areaM2, setAreaM2] = useState('')
-  const [height, setHeight] = useState('')
-  const [condition, setCondition] = useState<ConditionLevel>('level2')
-  const [storeys, setStoreys] = useState('1')
-  const [paintSystem, setPaintSystem] = useState<'standard' | 'premium' | 'commercial'>('premium')
+  const [vehicleType, setVehicleType] = useState<VehicleType>('sedan')
+  const [vehicleYear, setVehicleYear] = useState('')
+  const [vehicleCondition, setVehicleCondition] = useState<VehicleCondition>('good')
+  const [locationPostcode, setLocationPostcode] = useState('')
+  const [mileage, setMileage] = useState('')
   const [images, setImages] = useState<File[]>([])
   const [imagePreviews, setImagePreviews] = useState<string[]>([])
   const [loading, setLoading] = useState(false)
   const [quote, setQuote] = useState<QuoteCalculationResponse | null>(null)
   const [error, setError] = useState<string>('')
-  
-  // Legal & Safety
-  const [builtBefore1970, setBuiltBefore1970] = useState(false)
-  const [includesLeadRemoval, setIncludesLeadRemoval] = useState(false)
-  
-  // Coastal
-  const [withinCoastal500m, setWithinCoastal500m] = useState(false)
-  
-  // Additional Works
-  const [includesSoffitsFascias, setIncludesSoffitsFascias] = useState(false)
-  const [soffisFasciasAreaM2, setSoffisFasciasAreaM2] = useState('')
-  const [joineryType, setJoineryType] = useState<'timber' | 'aluminum' | 'mixed' | 'none'>('none')
-  const [numTimberFrames, setNumTimberFrames] = useState('')
-  
+
+  // Additional Services
+  const [hasHazardousMaterials, setHasHazardousMaterials] = useState(false)
+  const [needsFluidDraining, setNeedsFluidDraining] = useState(false)
+  const [needsInternalRemoval, setNeedsInternalRemoval] = useState(false)
+  const [needsDisassembly, setNeedsDisassembly] = useState(false)
+  const [towingDistanceKm, setTowingDistanceKm] = useState('')
+
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   const readFileAsDataUrl = (file: File): Promise<string> =>
@@ -79,8 +73,8 @@ export function QuoteCalculator() {
     setLoading(true)
 
     try {
-      if (!areaM2 && images.length === 0) {
-        setError('Please enter area or upload an image for analysis')
+      if (!vehicleType || !vehicleYear || !locationPostcode) {
+        setError('Please fill in all required fields')
         setLoading(false)
         return
       }
@@ -93,40 +87,32 @@ export function QuoteCalculator() {
           .filter(Boolean)
 
         result = await calculateQuoteWithImage({
-          userProvidedAreaM2: areaM2 ? parseFloat(areaM2) : 0,
-          userEstimatedHeight: height ? parseFloat(height) : undefined,
-          userSelectedCondition: condition,
-          storeyCount: parseInt(storeys),
-          paintSystem,
+          vehicleType,
+          vehicleYear: parseInt(vehicleYear),
+          vehicleCondition,
+          locationPostcode,
+          mileage: mileage ? parseInt(mileage) : undefined,
           imagesBase64,
-          // Legal & Safety
-          builtBefore1970,
-          includesLeadRemoval: builtBefore1970 && includesLeadRemoval,
-          // Coastal
-          withinCoastal500m,
-          // Additional Works
-          includesSoffitsFascias,
-          soffisFasciasAreaM2: includesSoffitsFascias ? parseFloat(soffisFasciasAreaM2 || '0') : 0,
-          joineryType,
-          numTimberFrames: joineryType !== 'none' ? parseInt(numTimberFrames || '0') : 0,
+          // Additional Services
+          hasHazardousMaterials,
+          needsFluidDraining,
+          needsInternalRemoval,
+          needsDisassembly,
+          towingDistanceKm: towingDistanceKm ? parseFloat(towingDistanceKm) : 0,
         })
       } else {
         result = await calculateQuote({
-          userProvidedAreaM2: parseFloat(areaM2 || '0'),
-          userEstimatedHeight: height ? parseFloat(height) : undefined,
-          userSelectedCondition: condition,
-          storeyCount: parseInt(storeys),
-          paintSystem,
-          // Legal & Safety
-          builtBefore1970,
-          includesLeadRemoval: builtBefore1970 && includesLeadRemoval,
-          // Coastal
-          withinCoastal500m,
-          // Additional Works
-          includesSoffitsFascias,
-          soffisFasciasAreaM2: includesSoffitsFascias ? parseFloat(soffisFasciasAreaM2 || '0') : 0,
-          joineryType,
-          numTimberFrames: joineryType !== 'none' ? parseInt(numTimberFrames || '0') : 0,
+          vehicleType,
+          vehicleYear: parseInt(vehicleYear),
+          vehicleCondition,
+          locationPostcode,
+          mileage: mileage ? parseInt(mileage) : undefined,
+          // Additional Services
+          hasHazardousMaterials,
+          needsFluidDraining,
+          needsInternalRemoval,
+          needsDisassembly,
+          towingDistanceKm: towingDistanceKm ? parseFloat(towingDistanceKm) : 0,
         })
       }
 
@@ -148,18 +134,19 @@ export function QuoteCalculator() {
       <Card className="p-8 border border-slate-200">
         <form onSubmit={handleCalculate} className="space-y-6">
           <div>
-            <h3 className="text-lg font-semibold mb-4" style={{ color: '#0f172a' }}>
-              Professional Paint Quote Calculator
+            <h3 className="text-lg font-semibold mb-4 flex items-center gap-2" style={{ color: '#0f172a' }}>
+              <Truck className="w-5 h-5" />
+              Professional Car Removal Quote Calculator
             </h3>
             <p className="text-sm" style={{ color: '#64748b' }}>
-              Based on 2026 NZ market rates. Uses professional "Man-Hour" algorithm.
+              Based on 2026 Tasmania market rates. Environmentally compliant vehicle disposal.
             </p>
           </div>
 
           {/* Image Upload */}
           <div className="space-y-3">
             <Label className="text-sm font-medium" style={{ color: '#0f172a' }}>
-              Upload Photo (Optional - For AI Analysis)
+              Upload Vehicle Photos (Optional - For AI Analysis)
             </Label>
             <div
               className="border-2 border-dashed rounded-lg p-6 text-center cursor-pointer hover:bg-slate-50 transition"
@@ -200,10 +187,10 @@ export function QuoteCalculator() {
                 <div className="space-y-2">
                   <Upload className="w-8 h-8 mx-auto" style={{ color: '#f97316' }} />
                   <p className="text-sm font-medium" style={{ color: '#0f172a' }}>
-                    Click to upload exterior photos
+                    Click to upload vehicle photos
                   </p>
                   <p className="text-xs" style={{ color: '#94a3b8' }}>
-                    JPEG or PNG, max 10MB each, up to 5 images.
+                    JPEG or PNG, max 10MB each, up to 5 images. Include exterior, interior, and any damage.
                   </p>
                 </div>
               )}
@@ -219,225 +206,199 @@ export function QuoteCalculator() {
             </div>
           </div>
 
-          {/* Area Input */}
+          {/* Vehicle Details */}
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="area" className="text-sm font-medium" style={{ color: '#0f172a' }}>
-                Wall Area (m²)
+              <Label htmlFor="vehicle-type" className="text-sm font-medium" style={{ color: '#0f172a' }}>
+                Vehicle Type *
               </Label>
-              <Input
-                id="area"
-                type="number"
-                placeholder="e.g., 45.5"
-                value={areaM2}
-                onChange={(e) => setAreaM2(e.target.value)}
-                step="0.1"
-                className="h-11 border-slate-200"
-              />
-              <p className="text-xs" style={{ color: '#94a3b8' }}>
-                Length × Height (don't subtract windows)
-              </p>
+              <Select value={vehicleType} onValueChange={(v) => setVehicleType(v as VehicleType)}>
+                <SelectTrigger className="h-11 border-slate-200">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="motorcycle">Motorcycle</SelectItem>
+                  <SelectItem value="sedan">Sedan</SelectItem>
+                  <SelectItem value="ute">Ute</SelectItem>
+                  <SelectItem value="van">Van</SelectItem>
+                  <SelectItem value="suv">SUV</SelectItem>
+                  <SelectItem value="truck">Truck</SelectItem>
+                  <SelectItem value="caravan">Caravan</SelectItem>
+                  <SelectItem value="other">Other</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="height" className="text-sm font-medium" style={{ color: '#0f172a' }}>
-                Height (m) - Optional
+              <Label htmlFor="vehicle-year" className="text-sm font-medium" style={{ color: '#0f172a' }}>
+                Vehicle Year *
               </Label>
               <Input
-                id="height"
+                id="vehicle-year"
                 type="number"
-                placeholder="e.g., 6"
-                value={height}
-                onChange={(e) => setHeight(e.target.value)}
-                step="0.1"
+                placeholder="e.g., 2015"
+                value={vehicleYear}
+                onChange={(e) => setVehicleYear(e.target.value)}
+                min="1900"
+                max="2026"
                 className="h-11 border-slate-200"
+                required
               />
             </div>
           </div>
 
-          {/* Condition Selection */}
+          {/* Condition and Location */}
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="condition" className="text-sm font-medium" style={{ color: '#0f172a' }}>
-                Paint Condition
+                Vehicle Condition *
               </Label>
-              <Select value={condition} onValueChange={(v) => setCondition(v as ConditionLevel)}>
+              <Select value={vehicleCondition} onValueChange={(v) => setVehicleCondition(v as VehicleCondition)}>
                 <SelectTrigger className="h-11 border-slate-200">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="level1">Level 1: Wash & Paint</SelectItem>
-                  <SelectItem value="level2">Level 2: Standard Prep</SelectItem>
-                  <SelectItem value="level3">Level 3: Heavy Prep</SelectItem>
-                  <SelectItem value="level4">Level 4: Full Strip</SelectItem>
+                  <SelectItem value="excellent">Excellent (Low mileage, minimal wear)</SelectItem>
+                  <SelectItem value="good">Good (Moderate wear, running well)</SelectItem>
+                  <SelectItem value="fair">Fair (Some wear, needs minor work)</SelectItem>
+                  <SelectItem value="poor">Poor (Significant wear/damage)</SelectItem>
+                  <SelectItem value="nonrunning">Non-running (Won't start)</SelectItem>
+                  <SelectItem value="damaged">Damaged (Major structural damage)</SelectItem>
                 </SelectContent>
               </Select>
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="storeys" className="text-sm font-medium" style={{ color: '#0f172a' }}>
-                Building Height
+              <Label htmlFor="postcode" className="text-sm font-medium flex items-center gap-1" style={{ color: '#0f172a' }}>
+                <MapPin className="w-4 h-4" />
+                Postcode *
               </Label>
-              <Select value={storeys} onValueChange={setStoreys}>
-                <SelectTrigger className="h-11 border-slate-200">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="1">Single Storey</SelectItem>
-                  <SelectItem value="2">Two Storey</SelectItem>
-                  <SelectItem value="3">3+ Storey</SelectItem>
-                </SelectContent>
-              </Select>
+              <Input
+                id="postcode"
+                type="text"
+                placeholder="e.g., 7000"
+                value={locationPostcode}
+                onChange={(e) => setLocationPostcode(e.target.value)}
+                className="h-11 border-slate-200"
+                required
+              />
+              <p className="text-xs" style={{ color: '#94a3b8' }}>
+                For location-based pricing
+              </p>
             </div>
           </div>
 
-          {/* Paint System */}
+          {/* Mileage */}
           <div className="space-y-2">
-            <Label htmlFor="system" className="text-sm font-medium" style={{ color: '#0f172a' }}>
-              Paint System (NZ Market)
+            <Label htmlFor="mileage" className="text-sm font-medium" style={{ color: '#0f172a' }}>
+              Mileage (Optional)
             </Label>
-            <Select value={paintSystem} onValueChange={(v) => setPaintSystem(v as any)}>
-              <SelectTrigger className="h-11 border-slate-200">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="standard">Standard (1x Primer + 2x Coats)</SelectItem>
-                <SelectItem value="premium">Premium - Resene/Dulux (1x Primer + 2x Coats)</SelectItem>
-                <SelectItem value="commercial">Commercial Grade</SelectItem>
-              </SelectContent>
-            </Select>
+            <Input
+              id="mileage"
+              type="number"
+              placeholder="e.g., 150000"
+              value={mileage}
+              onChange={(e) => setMileage(e.target.value)}
+              step="1000"
+              className="h-11 border-slate-200"
+            />
+            <p className="text-xs" style={{ color: '#94a3b8' }}>
+              Helps with condition assessment
+            </p>
           </div>
 
-          {/* NZ COMPLIANCE & HIDDEN COSTS SECTION */}
+          {/* Additional Services */}
           <div className="border-t border-slate-200 pt-6 space-y-6">
             <h4 className="font-semibold text-sm" style={{ color: '#0f172a' }}>
-              Additional Site Details (NZ Compliance & Hidden Costs)
+              Additional Services & Requirements
             </h4>
 
-            {/* Lead Paint Testing */}
+            {/* Hazardous Materials */}
             <div className="space-y-3">
               <div className="flex items-center gap-3">
                 <Checkbox
-                  id="pre1970"
-                  checked={builtBefore1970}
-                  onCheckedChange={(checked) => {
-                    setBuiltBefore1970(checked as boolean)
-                    if (!checked) setIncludesLeadRemoval(false)
-                  }}
+                  id="hazardous"
+                  checked={hasHazardousMaterials}
+                  onCheckedChange={(checked) => setHasHazardousMaterials(checked as boolean)}
                 />
-                <Label htmlFor="pre1970" className="text-sm font-medium cursor-pointer" style={{ color: '#0f172a' }}>
-                  Home built before 1970? (Possible lead paint)
-                </Label>
-              </div>
-              {builtBefore1970 && (
-                <div className="ml-8 flex items-center gap-3">
-                  <Checkbox
-                    id="leadRemoval"
-                    checked={includesLeadRemoval}
-                    onCheckedChange={(checked) => setIncludesLeadRemoval(checked as boolean)}
-                  />
-                  <Label htmlFor="leadRemoval" className="text-sm cursor-pointer flex flex-col gap-1" style={{ color: '#0f172a' }}>
-                    <span>Include lead testing & safe removal</span>
-                    <span className="text-xs font-normal" style={{ color: '#94a3b8' }}>
-                      WorkSafe requirement: Testing ($400) + Wet-strip removal ($15-$50/m²)
-                    </span>
-                  </Label>
-                </div>
-              )}
-            </div>
-
-            {/* Coastal Location */}
-            <div className="space-y-3">
-              <div className="flex items-center gap-3">
-                <Checkbox
-                  id="coastal"
-                  checked={withinCoastal500m}
-                  onCheckedChange={(checked) => setWithinCoastal500m(checked as boolean)}
-                />
-                <Label htmlFor="coastal" className="text-sm font-medium cursor-pointer flex flex-col gap-1" style={{ color: '#0f172a' }}>
-                  <span>Within 500m of coast?</span>
+                <Label htmlFor="hazardous" className="text-sm font-medium cursor-pointer flex flex-col gap-1" style={{ color: '#0f172a' }}>
+                  <span>Hazardous materials present?</span>
                   <span className="text-xs font-normal" style={{ color: '#94a3b8' }}>
-                    Salt wash prep + high-build primer + extra coat
+                    Airbags, mercury switches, batteries, fuel system components (+$150)
                   </span>
                 </Label>
               </div>
             </div>
 
-            {/* Soffits & Fascias */}
+            {/* Fluid Draining */}
             <div className="space-y-3">
               <div className="flex items-center gap-3">
                 <Checkbox
-                  id="soffit"
-                  checked={includesSoffitsFascias}
-                  onCheckedChange={(checked) => {
-                    setIncludesSoffitsFascias(checked as boolean)
-                    if (!checked) setSoffisFasciasAreaM2('')
-                  }}
+                  id="fluids"
+                  checked={needsFluidDraining}
+                  onCheckedChange={(checked) => setNeedsFluidDraining(checked as boolean)}
                 />
-                <Label htmlFor="soffit" className="text-sm font-medium cursor-pointer" style={{ color: '#0f172a' }}>
-                  Include Soffits & Fascias?
+                <Label htmlFor="fluids" className="text-sm font-medium cursor-pointer flex flex-col gap-1" style={{ color: '#0f172a' }}>
+                  <span>Fluid draining required?</span>
+                  <span className="text-xs font-normal" style={{ color: '#94a3b8' }}>
+                    Oil, coolant, brake fluid, transmission fluid (+$75)
+                  </span>
                 </Label>
               </div>
-              {includesSoffitsFascias && (
-                <div className="ml-8 space-y-2">
-                  <Label htmlFor="soffit-area" className="text-sm" style={{ color: '#64748b' }}>
-                    Soffits & Fascias Area (m²)
-                  </Label>
-                  <Input
-                    id="soffit-area"
-                    type="number"
-                    placeholder="e.g., 8"
-                    value={soffisFasciasAreaM2}
-                    onChange={(e) => setSoffisFasciasAreaM2(e.target.value)}
-                    step="0.1"
-                    className="h-10 border-slate-200"
-                  />
-                  <p className="text-xs" style={{ color: '#94a3b8' }}>
-                    Detailed trim work: 0.6 hrs/m² (vs 0.2 hrs/m² for walls)
-                  </p>
-                </div>
-              )}
             </div>
 
-            {/* Joinery Work */}
+            {/* Internal Removal */}
             <div className="space-y-3">
-              <Label className="text-sm font-medium" style={{ color: '#0f172a' }}>
-                Window & Door Joinery Type
-              </Label>
-              <Select value={joineryType} onValueChange={(v) => {
-                setJoineryType(v as any)
-                if (v === 'none') setNumTimberFrames('')
-              }}>
-                <SelectTrigger className="h-11 border-slate-200">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">None / Already Included</SelectItem>
-                  <SelectItem value="timber">Timber Frames (2.5 hrs each)</SelectItem>
-                  <SelectItem value="aluminum">Aluminum (0.3 hrs each)</SelectItem>
-                  <SelectItem value="mixed">Mixed Timber & Aluminum</SelectItem>
-                </SelectContent>
-              </Select>
+              <div className="flex items-center gap-3">
+                <Checkbox
+                  id="internal"
+                  checked={needsInternalRemoval}
+                  onCheckedChange={(checked) => setNeedsInternalRemoval(checked as boolean)}
+                />
+                <Label htmlFor="internal" className="text-sm font-medium cursor-pointer flex flex-col gap-1" style={{ color: '#0f172a' }}>
+                  <span>Internal component removal?</span>
+                  <span className="text-xs font-normal" style={{ color: '#94a3b8' }}>
+                    Seats, dashboard, engine components (+$100)
+                  </span>
+                </Label>
+              </div>
+            </div>
 
-              {joineryType !== 'none' && (
-                <div className="ml-0 space-y-2">
-                  <Label htmlFor="frame-count" className="text-sm" style={{ color: '#64748b' }}>
-                    Number of Frames (Windows/Doors)
-                  </Label>
-                  <Input
-                    id="frame-count"
-                    type="number"
-                    placeholder="e.g., 12"
-                    value={numTimberFrames}
-                    onChange={(e) => setNumTimberFrames(e.target.value)}
-                    step="1"
-                    className="h-10 border-slate-200"
-                  />
-                  <p className="text-xs" style={{ color: '#94a3b8' }}>
-                    12 timber frames can add 30+ hours. Aluminum is much faster.
-                  </p>
-                </div>
-              )}
+            {/* Disassembly */}
+            <div className="space-y-3">
+              <div className="flex items-center gap-3">
+                <Checkbox
+                  id="disassembly"
+                  checked={needsDisassembly}
+                  onCheckedChange={(checked) => setNeedsDisassembly(checked as boolean)}
+                />
+                <Label htmlFor="disassembly" className="text-sm font-medium cursor-pointer flex flex-col gap-1" style={{ color: '#0f172a' }}>
+                  <span>Major disassembly required?</span>
+                  <span className="text-xs font-normal" style={{ color: '#94a3b8' }}>
+                    Engine, transmission, axles, body panels (+$200)
+                  </span>
+                </Label>
+              </div>
+            </div>
+
+            {/* Towing Distance */}
+            <div className="space-y-2">
+              <Label htmlFor="towing" className="text-sm font-medium" style={{ color: '#0f172a' }}>
+                Towing Distance (km) - If vehicle won't start
+              </Label>
+              <Input
+                id="towing"
+                type="number"
+                placeholder="e.g., 25"
+                value={towingDistanceKm}
+                onChange={(e) => setTowingDistanceKm(e.target.value)}
+                step="1"
+                min="0"
+                className="h-11 border-slate-200"
+              />
+              <p className="text-xs" style={{ color: '#94a3b8' }}>
+                $3.50/km beyond 25km from depot
+              </p>
             </div>
           </div>
 
@@ -477,10 +438,10 @@ export function QuoteCalculator() {
             <div className="flex items-start justify-between gap-4">
               <div>
                 <h2 className="text-2xl font-bold" style={{ color: '#0f172a' }}>
-                  Estimated Quote
+                  Car Removal Quote
                 </h2>
                 <p className="text-sm mt-1" style={{ color: '#64748b' }}>
-                  Professional NZ painter estimate
+                  Professional Tasmania vehicle disposal estimate
                 </p>
               </div>
               <CheckCircle2 className="w-8 h-8 text-green-600 flex-shrink-0 mt-1" />
@@ -492,17 +453,17 @@ export function QuoteCalculator() {
                 TOTAL ESTIMATE (Inc. GST)
               </p>
               <p className="text-5xl font-bold" style={{ color: '#f97316' }}>
-                ${quote.totalNZD.toLocaleString('en-NZ', { maximumFractionDigits: 0 })}
+                ${quote.totalAUD.toLocaleString('en-AU', { maximumFractionDigits: 0 })}
               </p>
               <p className="text-xs mt-2" style={{ color: '#94a3b8' }}>
-                Subtotal (before 15% GST): ${quote.subtotalNZD.toLocaleString('en-NZ', { maximumFractionDigits: 0 })}
+                Subtotal (before 10% GST): ${quote.subtotalAUD.toLocaleString('en-AU', { maximumFractionDigits: 0 })}
               </p>
             </div>
 
             {quote.geminiImageSummaries && quote.geminiImageSummaries.length > 0 && (
               <div className="bg-white rounded-lg p-6 border border-slate-100 space-y-3">
                 <h3 className="font-semibold" style={{ color: '#0f172a' }}>
-                  Image Analysis
+                  AI Vehicle Analysis
                 </h3>
                 <ul className="space-y-2">
                   {quote.geminiImageSummaries.map((summary) => (
@@ -511,7 +472,7 @@ export function QuoteCalculator() {
                         <strong>Image {summary.index + 1}:</strong> {summary.description}
                       </p>
                       <p style={{ color: '#64748b' }}>
-                        Confidence: {summary.confidence}% | Condition: {summary.conditionLevel} | Area estimate: {summary.estimatedAreaM2.toFixed(1)} m²
+                        Confidence: {summary.confidence}% | Condition: {summary.conditionLevel} | Damage: {summary.damageLevel}
                       </p>
                     </li>
                   ))}
@@ -523,83 +484,90 @@ export function QuoteCalculator() {
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               <div className="bg-white rounded-lg p-4 border border-slate-100">
                 <p className="text-xs font-medium mb-1" style={{ color: '#94a3b8' }}>
-                  Labor (Prep + Apply)
+                  Base Fee
                 </p>
                 <p className="text-xl font-bold" style={{ color: '#0f172a' }}>
-                  ${quote.laborCostNZD.toLocaleString('en-NZ', { maximumFractionDigits: 0 })}
+                  ${quote.baseFeeAUD.toLocaleString('en-AU', { maximumFractionDigits: 0 })}
                 </p>
                 <p className="text-xs mt-1" style={{ color: '#94a3b8' }}>
-                  {quote.laborHours.toFixed(1)} hours
+                  {quote.vehicleType} removal
                 </p>
               </div>
 
               <div className="bg-white rounded-lg p-4 border border-slate-100">
                 <p className="text-xs font-medium mb-1" style={{ color: '#94a3b8' }}>
-                  Materials
+                  Condition Adjustment
                 </p>
                 <p className="text-xl font-bold" style={{ color: '#0f172a' }}>
-                  ${quote.materialsCostNZD.toLocaleString('en-NZ', { maximumFractionDigits: 0 })}
+                  ${quote.conditionAdjustmentAUD.toLocaleString('en-AU', { maximumFractionDigits: 0 })}
+                </p>
+                <p className="text-xs mt-1" style={{ color: '#94a3b8' }}>
+                  {quote.conditionMultiplier}x multiplier
                 </p>
               </div>
 
-              {(quote.accessSurchargeNZD > 0 || quote.leadRemovalCostNZD > 0 || quote.coastalSurchargeCostNZD > 0) && (
+              {(quote.locationSurchargeAUD > 0 || quote.hazardousMaterialsFeeAUD > 0) && (
                 <div className="bg-white rounded-lg p-4 border border-slate-100 md:col-span-2">
                   <p className="text-xs font-medium mb-1" style={{ color: '#94a3b8' }}>
-                    Access/Safety/Compliance Surcharges
+                    Surcharges
                   </p>
                   <p className="text-xl font-bold" style={{ color: '#0f172a' }}>
-                    ${(quote.accessSurchargeNZD + quote.leadRemovalCostNZD + quote.coastalSurchargeCostNZD).toLocaleString('en-NZ', { maximumFractionDigits: 0 })}
+                    ${(quote.locationSurchargeAUD + quote.hazardousMaterialsFeeAUD).toLocaleString('en-AU', { maximumFractionDigits: 0 })}
+                  </p>
+                  <p className="text-xs mt-1" style={{ color: '#94a3b8' }}>
+                    Location + hazardous materials
                   </p>
                 </div>
               )}
 
-              {(quote.soffisFasciasCostNZD > 0 || quote.joineryWorkCostNZD > 0) && (
+              {(quote.fluidDrainingFeeAUD > 0 || quote.internalRemovalFeeAUD > 0 || quote.disassemblyFeeAUD > 0 || quote.towingFeeAUD > 0) && (
                 <div className="bg-white rounded-lg p-4 border border-slate-100 md:col-span-2">
                   <p className="text-xs font-medium mb-1" style={{ color: '#94a3b8' }}>
-                    Additional Works (Trim/Joinery)
+                    Additional Services
                   </p>
                   <p className="text-xl font-bold" style={{ color: '#0f172a' }}>
-                    ${(quote.soffisFasciasCostNZD + quote.joineryWorkCostNZD).toLocaleString('en-NZ', { maximumFractionDigits: 0 })}
+                    ${(quote.fluidDrainingFeeAUD + quote.internalRemovalFeeAUD + quote.disassemblyFeeAUD + quote.towingFeeAUD).toLocaleString('en-AU', { maximumFractionDigits: 0 })}
+                  </p>
+                  <p className="text-xs mt-1" style={{ color: '#94a3b8' }}>
+                    Fluids, removal, disassembly, towing
                   </p>
                 </div>
               )}
             </div>
 
-            {/* Crew & Timeline - Highlighted Section */}
+            {/* Service Details */}
             <div className="bg-gradient-to-br from-orange-50 to-amber-50 rounded-lg p-6 border border-orange-200">
               <h3 className="font-semibold mb-4 flex items-center gap-2" style={{ color: '#0f172a' }}>
-                <span className="text-lg">⏱️</span> Project Timeline & Crew
+                <Truck className="w-5 h-5" />
+                Service Details
               </h3>
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <p className="text-xs font-medium mb-1" style={{ color: '#94a3b8' }}>
-                    Estimated Duration
+                    Collection
                   </p>
                   <p className="text-xl font-bold" style={{ color: '#f97316' }}>
-                    {quote.assumptions
-                      .find(a => a.includes('Project Duration'))
-                      ?.split('~')[1]
-                      ?.split(' working')[0] || '4-6 days'}
+                    Same Day
                   </p>
                   <p className="text-xs mt-1" style={{ color: '#64748b' }}>
-                    Weather dependent
+                    Within Hobart metro area
                   </p>
                 </div>
                 <div>
                   <p className="text-xs font-medium mb-1" style={{ color: '#94a3b8' }}>
-                    Standard Crew
+                    Processing
                   </p>
                   <p className="text-xl font-bold" style={{ color: '#0f172a' }}>
-                    2 Painters
+                    24-48 Hours
                   </p>
                   <p className="text-xs mt-1" style={{ color: '#64748b' }}>
-                    Professional team
+                    Environmentally compliant
                   </p>
                 </div>
               </div>
               <div className="mt-4 p-3 bg-white rounded border border-orange-100">
                 <p className="text-xs" style={{ color: '#475569' }}>
-                  <strong>Why 2 painters?</strong> One handles ladder work (high areas), the other manages ground-level "cutting in" and prep. Faster completion + safer WorkSafe-compliant access work.
+                  <strong>What's included:</strong> Collection, environmental disposal, recycling, paperwork. Excludes title transfer fees and any outstanding fines.
                 </p>
               </div>
             </div>
@@ -607,7 +575,7 @@ export function QuoteCalculator() {
             {/* Job Details */}
             <div className="bg-white rounded-lg p-6 border border-slate-100 space-y-3">
               <h3 className="font-semibold" style={{ color: '#0f172a' }}>
-                Job Assumptions
+                Quote Assumptions
               </h3>
               <ul className="space-y-2">
                 {quote.assumptions.map((assumption, idx) => (
@@ -627,7 +595,7 @@ export function QuoteCalculator() {
                 document.getElementById('lead-form')?.scrollIntoView({ behavior: 'smooth' })
               }}
             >
-              Get Full Professional Quote
+              Book Collection
             </Button>
           </div>
         </Card>

@@ -1,409 +1,209 @@
 import {
   QuoteInput,
   QuoteCalculation,
-  ConditionLevel,
-  CONDITION_LEVELS,
-  NZ_PRICING_2026,
+  VehicleCondition,
+  VEHICLE_CONDITIONS,
+  TASMANIA_PRICING_2026,
 } from './types'
 
 /**
- * Professional NZ Painter Quote Calculator
- * 
- * Formula:
- * Total = (Area × Base Rate) + (Prep Factor × Labor) + Access Cost + Materials
+ * Professional Tasmania Car Removal Quote Calculator
  *
- * Based on 2026 NZ market rates and WorkSafe health & safety requirements
+ * Formula:
+ * Total = Base Fee + Condition Adjustment + Location Surcharge + Towing + Hazmat + Fluids
+ *
+ * Based on 2026 Tasmania market rates and environmental regulations
  */
 
-class PainterQuoteEngine {
-  private laborRate: number // NZD/hour
+class CarRemovalQuoteEngine {
+  private baseFee: number // AUD
 
-  constructor(laborRate: number = NZ_PRICING_2026.LABOR_RATE_PER_HOUR.mid) {
-    this.laborRate = laborRate
+  constructor(baseFee: number = 300) {
+    this.baseFee = baseFee
   }
 
   /**
-   * CORE ALGORITHM: Estimate labor hours using prep multiplier
-   * Professionals think in "Man-Hours", not just square meters
+   * BASE REMOVAL FEE: Vehicle type determines starting price
    */
-  private calculatePrepHours(areaM2: number, conditionLevel: ConditionLevel): number {
-    const condition = CONDITION_LEVELS[conditionLevel]
-    return areaM2 * condition.prepHoursPerM2
+  private getBaseRemovalFee(vehicleType: string): number {
+    return TASMANIA_PRICING_2026.BASE_REMOVAL_FEE[vehicleType as keyof typeof TASMANIA_PRICING_2026.BASE_REMOVAL_FEE] || TASMANIA_PRICING_2026.BASE_REMOVAL_FEE.other
   }
 
   /**
-   * BASE LABOR: Painting itself (not prep)
-   * Professional application time: 0.2 hours per m² per coat (more realistic)
+   * CONDITION ADJUSTMENT: Vehicle condition affects removal complexity
+   * Excellent: 100% (no adjustment)
+   * Good: 90% (minor discount)
+   * Fair: 75% (significant discount)
+   * Poor: 50% (major discount)
+   * Non-running: 40% (towing required)
+   * Damaged: 30% (complex removal)
    */
-  private calculateApplicationHours(areaM2: number, coats: number = 2): number {
-    const hoursPerCoatPerM2 = NZ_PRICING_2026.APPLICATION_HOURS_PER_COAT_PER_M2
-    return areaM2 * hoursPerCoatPerM2 * coats
+  private calculateConditionAdjustment(baseFee: number, condition: VehicleCondition): number {
+    const conditionData = VEHICLE_CONDITIONS[condition]
+    const adjustedFee = baseFee * conditionData.conditionMultiplier
+    return adjustedFee - baseFee // Return the adjustment amount (can be negative)
   }
 
   /**
-   * HEIGHT PENALTY: Ladder repositioning & safety precautions
-   * If 2-storey, add 15% to labor (not 25% anymore - height surcharge handles 3m+)
+   * LOCATION SURCHARGE: Tasmania regional pricing
+   * Hobart: Base ($0)
+   * Launceston: +$150
+   * Devonport: +$200
+   * Burnie: +$220
+   * Regional: +$250
+   * Remote: +$400
    */
-  private calculateHeightPenalty(
-    totalHours: number,
-    heightM?: number,
-    storeys?: number
-  ): number {
-    if (!heightM && !storeys) return 0
+  private calculateLocationSurcharge(postcode: string): number {
+    // Simple postcode-based location detection
+    const postcodeNum = parseInt(postcode)
 
-    // Only apply hour-based penalty for 2+ storeys when height not explicitly provided
-    const isPeakHeight = (storeys && storeys >= 2)
-    return isPeakHeight ? totalHours * 0.15 : 0
+    if (postcodeNum >= 7000 && postcodeNum <= 7019) return TASMANIA_PRICING_2026.LOCATION_SURCHARGES.hobart
+    if (postcodeNum >= 7248 && postcodeNum <= 7259) return TASMANIA_PRICING_2026.LOCATION_SURCHARGES.launceston
+    if (postcodeNum >= 7300 && postcodeNum <= 7320) return TASMANIA_PRICING_2026.LOCATION_SURCHARGES.devonport
+    if (postcodeNum >= 7320 && postcodeNum <= 7325) return TASMANIA_PRICING_2026.LOCATION_SURCHARGES.burnie
+
+    // Remote areas (north west, far south)
+    if (postcodeNum >= 7466 && postcodeNum <= 7470) return TASMANIA_PRICING_2026.LOCATION_SURCHARGES.remote
+
+    return TASMANIA_PRICING_2026.LOCATION_SURCHARGES.regional
   }
 
   /**
-   * HEIGHT-BASED SURCHARGE: Fixed cost for access equipment (NZ WorkSafe 3m Rule)
-   * 0-3m: No surcharge (standard ladder)
-   * 3-3.2m: Mobile tower/plank setup = $800
-   * 3.2-5m: Specialist mobile tower + higher complexity = $1,500
-   * 5m+: Professional scaffolding = $2,500
+   * TOWING SURCHARGE: Distance beyond 25km radius
+   * Base radius: 25km free
+   * Additional: $3.50 per km
    */
-  private calculateHeightSurcharge(heightM?: number): number {
-    if (!heightM || heightM <= 3) return 0
+  private calculateTowingSurcharge(distanceKm: number = 0): number {
+    const baseRadius = TASMANIA_PRICING_2026.TOWING_DISTANCE.baseRadius
+    const perKmRate = TASMANIA_PRICING_2026.TOWING_DISTANCE.perKm
 
-    if (heightM <= 3.2) {
-      return NZ_PRICING_2026.HEIGHT_SURCHARGES.height3to3_2m
-    }
-
-    if (heightM <= 5) {
-      return NZ_PRICING_2026.HEIGHT_SURCHARGES.height3_2to5m
-    }
-
-    return NZ_PRICING_2026.HEIGHT_SURCHARGES.height5plus
+    if (distanceKm <= baseRadius) return 0
+    return (distanceKm - baseRadius) * perKmRate
   }
 
   /**
-   * Get height surcharge label for display
+   * HAZMAT SURCHARGE: Hazardous components
+   * Batteries, airbags, mercury switches, etc.
    */
-  private getHeightSurchargeLabel(heightM?: number): string {
-    if (!heightM || heightM <= 3) return ''
-
-    if (heightM <= 3.2) {
-      return 'Mobile Tower Setup (3-3.2m)'
-    }
-
-    if (heightM <= 5) {
-      return 'Specialist Mobile Tower (3.2-5m)'
-    }
-
-    return 'Full Scaffolding (5m+)'
+  private calculateHazmatSurcharge(hasHazmat: boolean = false): number {
+    return hasHazmat ? TASMANIA_PRICING_2026.HAZMAT_SURCHARGE : 0
   }
 
   /**
-   * ESTIMATE PROJECT DURATION
-   * Based on: total prep + application hours, crew size, and realistic daily capacity
-   * 
-   * For weatherboards especially, crews need buffer for weather, drying time
-   * Standard crew: 2 painters = ~35 m²/day (includes all prep, drying)
+   * FLUID DRAINING SURCHARGE: Proper disposal of fluids
    */
-  private calculateEstimatedProjectDays(
-    areaM2: number,
-    crewSize: number = NZ_PRICING_2026.CREW_TIMELINE.standardCrewSize
-  ): number {
-    const productionRatePerDay = NZ_PRICING_2026.CREW_TIMELINE.productionRatePerDay
-    const daysRequired = areaM2 / productionRatePerDay
-    
-    // Round up and add minimal buffer (already built into production rate)
-    return Math.ceil(daysRequired)
+  private calculateFluidDrainingSurcharge(requiresDraining: boolean = false): number {
+    return requiresDraining ? TASMANIA_PRICING_2026.FLUID_DRAINING_FEE : 0
   }
 
   /**
-   * ACCESS SURCHARGE: WorkSafe compliance (height > 2m needs stable platforms)
-   * Single storey: $0
-   * Two storey: $2,000 - $5,000 (scaffolding/plank setup)
-   * Complex: $5,000+ (full scaffolding solution)
+   * INTERNAL REMOVAL SURCHARGE: Remove from garage/shed
    */
-  private calculateAccessSurcharge(
-    storeys: number,
-    heightM?: number,
-    accessMethod?: 'ground' | 'single-ladder' | 'scaffolding'
-  ): number {
-    if (heightM && heightM <= 2) return 0
-
-    if (storeys === 1 && accessMethod === 'ground') return 0
-    if (storeys === 1 && accessMethod === 'single-ladder') return 0
-
-    if (storeys === 2) {
-      // $2,000 - $5,000 typical for 2-storey
-      return NZ_PRICING_2026.ACCESS_SURCHARGE.twoStoreyScaffolding.mid
-    }
-
-    if (storeys >= 3 || accessMethod === 'scaffolding') {
-      return NZ_PRICING_2026.ACCESS_SURCHARGE.complexScaffolding.mid
-    }
-
-    return 0
+  private calculateInternalRemovalSurcharge(requiresInternal: boolean = false): number {
+    return requiresInternal ? TASMANIA_PRICING_2026.INTERNAL_REMOVAL_SURCHARGE : 0
   }
 
   /**
-   * MATERIAL COST: NZ Premium Paint System
-   * Exterior Standard: 1x Spot Prime + 2x Top Coats
-   * $15-$22 per m² for premium NZ materials (Resene/Dulux)
+   * DISASSEMBLY SURCHARGE: Partial removal of parts
    */
-  private calculateMaterialsCost(
-    areaM2: number,
-    paintSystem: 'standard' | 'premium' | 'commercial' = 'premium'
-  ): number {
-    const costPerM2 = NZ_PRICING_2026.MATERIAL_COST_PER_M2[paintSystem]
-    return areaM2 * costPerM2
-  }
-
-  /**
-   * LEGAL & SAFETY: Lead Paint Removal (Pre-1970s homes)
-   * NZ WorkSafe requirement: Wet-strip removal, hazmat disposal
-   * Cost: Testing ($400) + Labor ($15-$50/m²) + Disposal ($300/load)
-   */
-  private calculateLeadRemovalCost(areaM2: number, includesRemoval: boolean = false): number {
-    if (!includesRemoval) return 0
-
-    const testingFee = NZ_PRICING_2026.LEAD_PAINT.testingFee
-    const laborHours = areaM2 * NZ_PRICING_2026.LEAD_PAINT.removalHoursPerM2
-    const laborCost = laborHours * this.laborRate
-    const materialsCost = areaM2 * NZ_PRICING_2026.LEAD_PAINT.costPerM2
-    const hazmatDisposal = NZ_PRICING_2026.LEAD_PAINT.hazmatDisposalPerLoad
-
-    return testingFee + laborCost + materialsCost + hazmatDisposal
-  }
-
-  /**
-   * COASTAL SURCHARGE: Salt wash & high-build primer
-   * Common in Auckland/Northland within 500m of coast
-   * Adds: Pre-wash ($600) + Extra primer ($8/m²) + Additional coat prep
-   */
-  private calculateCoastalSurcharge(areaM2: number, isCoastal: boolean = false): number {
-    if (!isCoastal) return 0
-
-    const saltWashPrep = NZ_PRICING_2026.COASTAL_SURCHARGE.saltWashPrep
-    const highBuildPrimerCost = areaM2 * NZ_PRICING_2026.COASTAL_SURCHARGE.highBuildPrimerPerM2
-    const additionalCoatMaterial = areaM2 * NZ_PRICING_2026.COASTAL_SURCHARGE.additionalCoatPerM2
-
-    // Additional prep labor for coastal (0.1 hrs/m² extra)
-    const additionalLaborHours = areaM2 * 0.1
-    const additionalLaborCost = additionalLaborHours * this.laborRate
-
-    return saltWashPrep + highBuildPrimerCost + additionalCoatMaterial + additionalLaborCost
-  }
-
-  /**
-   * SOFFITS & FASCIAS: Detailed trim work
-   * Often different color than walls, requires detailed cutting in
-   * Labor-intensive: 0.6 hrs/m² vs 0.2 hrs/m² for walls
-   */
-  private calculateSoffisFasciasCost(
-    soffisFasciasAreaM2: number,
-    paintSystem: 'standard' | 'premium' | 'commercial' = 'premium'
-  ): number {
-    if (!soffisFasciasAreaM2 || soffisFasciasAreaM2 === 0) return 0
-
-    // Labor: 0.6 hrs/m² for detailed trim work + 2 coats
-    const hoursPerM2 = NZ_PRICING_2026.SOFFITS_FASCIAS.hoursPerM2
-    const totalHours = soffisFasciasAreaM2 * hoursPerM2 * 2 // Assume 2 coats
-    const laborCost = totalHours * this.laborRate
-
-    // Materials: Different paint for trim (may be premium)
-    const materialCostPerM2 = NZ_PRICING_2026.SOFFITS_FASCIAS.materialCostPerM2[paintSystem]
-    const materialsCost = soffisFasciasAreaM2 * materialCostPerM2
-
-    return laborCost + materialsCost
-  }
-
-  /**
-   * JOINERY WORK: Windows & doors (timber vs aluminum)
-   * Timber frames: 2.5 hrs each (complex masking, cutting in, drying between coats)
-   * Aluminum: 0.3 hrs each (no absorption, much faster)
-   * Professional estimates: 12 timber windows can add 30+ hours
-   */
-  private calculateJoineryWorkCost(
-    joineryType: 'timber' | 'aluminum' | 'mixed' | 'none' = 'none',
-    numTimberFrames: number = 0
-  ): number {
-    if (joineryType === 'none' || numTimberFrames === 0) return 0
-
-    let laborHours = 0
-    let materialsCost = 0
-
-    if (joineryType === 'timber') {
-      // Assume all frames are timber
-      laborHours = numTimberFrames * NZ_PRICING_2026.JOINERY_WORK.timberFrame
-      materialsCost = numTimberFrames * 15 // Primer + undercoat + topcoat materials
-    } else if (joineryType === 'aluminum') {
-      // Aluminum windows (spray-friendly, no prep needed)
-      laborHours = numTimberFrames * NZ_PRICING_2026.JOINERY_WORK.aluminiumFrame
-      materialsCost = numTimberFrames * 5 // Minimal materials
-    } else if (joineryType === 'mixed') {
-      // Assume 70% timber, 30% aluminum
-      const timberFrames = Math.round(numTimberFrames * 0.7)
-      const aluminiumFrames = numTimberFrames - timberFrames
-      laborHours =
-        timberFrames * NZ_PRICING_2026.JOINERY_WORK.timberFrame +
-        aluminiumFrames * NZ_PRICING_2026.JOINERY_WORK.aluminiumFrame
-      materialsCost = timberFrames * 15 + aluminiumFrames * 5
-    }
-
-    return laborHours * this.laborRate + materialsCost
+  private calculateDisassemblySurcharge(requiresDisassembly: boolean = false): number {
+    return requiresDisassembly ? TASMANIA_PRICING_2026.DISASSEMBLY_SURCHARGE : 0
   }
 
   /**
    * Main quote calculation
    */
   calculate(input: QuoteInput): QuoteCalculation {
-    // Determine area (use Gemini analysis if available, otherwise user input)
-    const areaM2 = input.gemminiAnalysis?.estimatedAreaM2 || input.userProvidedAreaM2
+    // Base fee based on vehicle type
+    const baseFeeAUD = this.getBaseRemovalFee(input.vehicleType)
 
-    // Determine condition level
-    let conditionLevel: ConditionLevel = input.userSelectedCondition || 'level2'
-    if (input.gemminiAnalysis) {
-      conditionLevel = input.gemminiAnalysis.conditionLevel
-    }
+    // Condition adjustment
+    const conditionAdjustmentAUD = this.calculateConditionAdjustment(baseFeeAUD, input.vehicleCondition)
+    const conditionMultiplier = VEHICLE_CONDITIONS[input.vehicleCondition].conditionMultiplier
 
-    // Determine storey count
-    const storeys = input.storeyCount || (input.gemminiAnalysis?.storeys || 1)
-    const heightM = input.userEstimatedHeight || input.gemminiAnalysis?.estimatedHeightM
+    // Location surcharge
+    const locationSurchargeAUD = this.calculateLocationSurcharge(input.locationPostcode)
 
-    // Calculate prep labor
-    const prepHours = this.calculatePrepHours(areaM2, conditionLevel)
-    const prepCostNZD = prepHours * this.laborRate
+    // Towing surcharge
+    const towingFeeAUD = this.calculateTowingSurcharge(input.towingDistanceKm)
 
-    // Calculate application labor
-    const coats = input.coatsRequired || 2
-    const applicationHours = this.calculateApplicationHours(areaM2, coats)
+    // Hazmat surcharge
+    const hazardousMaterialsFeeAUD = this.calculateHazmatSurcharge(input.hasHazardousMaterials)
 
-    // Calculate height penalty
-    const heightPenaltyHours = this.calculateHeightPenalty(applicationHours, heightM, storeys)
+    // Fluid draining surcharge
+    const fluidDrainingFeeAUD = this.calculateFluidDrainingSurcharge(input.needsFluidDraining)
 
-    // Total labor
-    const totalLaborHours = prepHours + applicationHours + heightPenaltyHours
-    const laborCostNZD = totalLaborHours * this.laborRate
+    // Internal removal surcharge
+    const internalRemovalFeeAUD = this.calculateInternalRemovalSurcharge(input.needsInternalRemoval)
 
-    // Setup fee (site protection, masking, first-day prep)
-    const setupFeeNZD = NZ_PRICING_2026.SETUP_FEE
+    // Disassembly surcharge
+    const disassemblyFeeAUD = this.calculateDisassemblySurcharge(input.needsDisassembly)
 
-    // Height surcharge (mobile tower, scaffolding for 3m+)
-    const heightSurchargeNZD = this.calculateHeightSurcharge(heightM)
+    // Subtotal (before GST)
+    const subtotalAUD =
+      baseFeeAUD +
+      conditionAdjustmentAUD +
+      locationSurchargeAUD +
+      towingFeeAUD +
+      hazardousMaterialsFeeAUD +
+      fluidDrainingFeeAUD +
+      internalRemovalFeeAUD +
+      disassemblyFeeAUD
 
-    // Access surcharge (for 2+ storeys)
-    const accessSurchargeNZD = this.calculateAccessSurcharge(
-      storeys,
-      heightM,
-      input.accessMethod
-    )
-
-    // Materials
-    const materialsCostNZD = this.calculateMaterialsCost(areaM2, input.paintSystem)
-
-    // NZ COMPLIANCE & HIDDEN COSTS (Issue #1)
-    const leadRemovalCostNZD = this.calculateLeadRemovalCost(
-      areaM2,
-      input.builtBefore1970 && input.includesLeadRemoval
-    )
-
-    const coastalSurchargeCostNZD = this.calculateCoastalSurcharge(
-      areaM2,
-      input.withinCoastal500m
-    )
-
-    const soffisFasciasCostNZD = this.calculateSoffisFasciasCost(
-      input.soffisFasciasAreaM2 || 0,
-      input.paintSystem
-    )
-
-    const joineryWorkCostNZD = this.calculateJoineryWorkCost(
-      input.joineryType,
-      input.numTimberFrames || 0
-    )
-
-    // Subtotal (before GST) - includes all costs
-    const subtotalNZD =
-      laborCostNZD +
-      materialsCostNZD +
-      setupFeeNZD +
-      heightSurchargeNZD +
-      accessSurchargeNZD +
-      leadRemovalCostNZD +
-      coastalSurchargeCostNZD +
-      soffisFasciasCostNZD +
-      joineryWorkCostNZD
-
-    // GST
-    const gstNZD = subtotalNZD * NZ_PRICING_2026.GST_RATE
-    const totalNZD = subtotalNZD + gstNZD
-
-    // Calculate project timeline
-    const estimatedDays = this.calculateEstimatedProjectDays(areaM2)
-    const heightSurchargeLabel = this.getHeightSurchargeLabel(heightM)
+    // GST (10% for Australia)
+    const gstAUD = subtotalAUD * TASMANIA_PRICING_2026.GST_RATE
+    const totalAUD = subtotalAUD + gstAUD
 
     // Assumptions for transparency
     const assumptions: string[] = [
-      `Area: ${areaM2.toFixed(1)} m²`,
-      `Condition: ${CONDITION_LEVELS[conditionLevel].description}`,
-      `Paint System: ${input.paintSystem || 'premium'} (${coats} coats)`,
-      `Labour hours: ${totalLaborHours.toFixed(1)} hours @ $${this.laborRate}/hr`,
-      `Project Duration: ~${estimatedDays} working days with 2-painter crew (weather dependent)`,
-      `Standard Crew: ${NZ_PRICING_2026.CREW_TIMELINE.standardCrewSize} professional painters (~${NZ_PRICING_2026.CREW_TIMELINE.productionRatePerDay}m²/day capacity)`,
-      heightM ? `Height: ${heightM.toFixed(1)}m${heightSurchargeLabel ? ` (${heightSurchargeLabel}: $${heightSurchargeNZD})` : ''}` : '',
-      storeys > 1 ? `Access: ${storeys}-storey (includes scaffolding surcharge: $${accessSurchargeNZD})` : '',
-      `Setup & Site Protection: $${setupFeeNZD} (masking, covering, first-day prep work)`,
-      input.builtBefore1970 && input.includesLeadRemoval ? `Lead paint removal: $${leadRemovalCostNZD.toFixed(0)} (testing, wet-strip, hazmat disposal)` : '',
-      input.withinCoastal500m ? `Coastal surcharge: $${coastalSurchargeCostNZD.toFixed(0)} (salt wash, high-build primer, extra coat)` : '',
-      input.includesSoffitsFascias ? `Soffits & Fascias: $${soffisFasciasCostNZD.toFixed(0)} (${input.soffisFasciasAreaM2?.toFixed(1)}m² @ $${(soffisFasciasCostNZD / (input.soffisFasciasAreaM2 || 1)).toFixed(0)}/m²)` : '',
-      input.joineryType && input.joineryType !== 'none' ? `Joinery work (${input.numTimberFrames || 0} ${input.joineryType} frames): $${joineryWorkCostNZD.toFixed(0)}` : '',
-      'Excludes: Rotten timber replacement (subject to site inspection), roof/gutter work, weathertightness repairs',
+      `Vehicle: ${input.vehicleYear} ${input.vehicleType.charAt(0).toUpperCase() + input.vehicleType.slice(1)}`,
+      `Condition: ${VEHICLE_CONDITIONS[input.vehicleCondition].description}`,
+      `Location: ${input.locationPostcode} (Tasmania)`,
+      `Base removal fee: $${baseFeeAUD} (${input.vehicleType})`,
+      conditionAdjustmentAUD !== 0 ? `Condition adjustment: ${conditionAdjustmentAUD > 0 ? '+' : ''}$${conditionAdjustmentAUD.toFixed(0)} (${input.vehicleCondition})` : '',
+      locationSurchargeAUD > 0 ? `Location surcharge: $${locationSurchargeAUD} (${input.locationPostcode})` : '',
+      towingFeeAUD > 0 ? `Towing surcharge: $${towingFeeAUD.toFixed(0)} (${input.towingDistanceKm}km beyond ${TASMANIA_PRICING_2026.TOWING_DISTANCE.baseRadius}km radius)` : '',
+      hazardousMaterialsFeeAUD > 0 ? `Hazardous materials surcharge: $${hazardousMaterialsFeeAUD} (batteries, airbags, etc.)` : '',
+      fluidDrainingFeeAUD > 0 ? `Fluid draining surcharge: $${fluidDrainingFeeAUD} (proper disposal)` : '',
+      internalRemovalFeeAUD > 0 ? `Internal removal surcharge: $${internalRemovalFeeAUD} (garage/shed access)` : '',
+      disassemblyFeeAUD > 0 ? `Disassembly surcharge: $${disassemblyFeeAUD} (partial dismantling)` : '',
+      'Includes: Vehicle collection, environmental compliance, recycling/disposal',
+      'Excludes: Title transfer fees, registration cancellation, storage fees',
+      'GST: 10% (Australian standard)',
+      'Payment terms: Cash on collection or bank transfer',
     ].filter(Boolean)
 
     return {
-      areaM2,
-      prepFactor: {
-        baseHoursPerM2: CONDITION_LEVELS[conditionLevel].prepHoursPerM2,
-        conditionMultiplier: 1,
-        totalPrepHours: prepHours,
-        prepCostNZD,
-      },
-      laborHours: totalLaborHours,
-      laborCostNZD,
-      accessSurchargeNZD,
-      materialsCostNZD,
-      leadRemovalCostNZD,
-      coastalSurchargeCostNZD,
-      soffisFasciasCostNZD,
-      joineryWorkCostNZD,
-      subtotalNZD,
-      gstNZD,
-      totalNZD,
-      breakdown: {
-        prep: prepCostNZD,
-        labor: laborCostNZD - prepCostNZD,
-        materials: materialsCostNZD,
-        access: accessSurchargeNZD + heightSurchargeNZD + setupFeeNZD,
-        compliance: leadRemovalCostNZD + coastalSurchargeCostNZD,
-        additionalWorks: soffisFasciasCostNZD + joineryWorkCostNZD,
-      },
+      vehicleType: input.vehicleType,
+      vehicleYear: input.vehicleYear,
+      vehicleCondition: input.vehicleCondition,
+      locationPostcode: input.locationPostcode,
+      baseFeeAUD,
+      conditionAdjustmentAUD,
+      conditionMultiplier,
+      locationSurchargeAUD,
+      hazardousMaterialsFeeAUD,
+      fluidDrainingFeeAUD,
+      internalRemovalFeeAUD,
+      disassemblyFeeAUD,
+      towingFeeAUD,
+      subtotalAUD,
+      gstAUD,
+      totalAUD,
       assumptions,
     }
   }
 
   /**
-   * Estimate area based on height and width (for missing user data)
+   * Set custom base fee (useful for different pricing tiers)
    */
-  estimateArea(heightM: number, widthM: number): number {
-    // Don't subtract windows/doors - "Cutting In" rule
-    return heightM * widthM
-  }
-
-  /**
-   * Set custom labor rate (useful for different pricing tiers)
-   */
-  setLaborRate(rate: number): void {
-    this.laborRate = rate
+  setBaseFee(fee: number): void {
+    this.baseFee = fee
   }
 }
 
 export const createQuoteEngine = (
-  laborRate: number = NZ_PRICING_2026.LABOR_RATE_PER_HOUR.mid
-) => new PainterQuoteEngine(laborRate)
+  baseFee: number = 300
+) => new CarRemovalQuoteEngine(baseFee)
 
-export default PainterQuoteEngine
+export default CarRemovalQuoteEngine
