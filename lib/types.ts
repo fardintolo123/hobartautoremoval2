@@ -1,196 +1,104 @@
-// Painting quote system types for NZ market (2026)
+// Auto Removal Quote System - Hobart, Tasmania (2026)
 
-export type ConditionLevel = 'level1' | 'level2' | 'level3' | 'level4'
+export type VehicleType = 'sedan' | 'suv_4wd' | 'ute_truck' | 'van' | 'motorcycle' | 'bus_truck' | 'caravan_trailer'
 
-export interface ConditionClassification {
-  level: ConditionLevel
-  description: string
-  prepHoursPerM2: number
-  examples: string[]
+export type VehicleCondition = 'running' | 'not_running' | 'damaged' | 'stripped' | 'unknown'
+
+export type LocationZone = 'hobart_metro' | 'greater_hobart' | 'south_tasmania' | 'north_tasmania'
+
+export interface AutoRemovalQuoteInput {
+  vehicleType: VehicleType
+  vehicleCondition: VehicleCondition
+  vehicleYear: string
+  vehicleMake: string
+  locationZone: LocationZone
+  hasTitle: boolean
+  isOnPrivateProperty: boolean
+  requiresSameDayPickup: boolean
+  hasHazardousFluid: boolean
 }
 
-export interface GeminiVisionAnalysis {
-  claddingType: string
-  estimatedHeightM: number
-  estimatedAreaM2: number
-  coatingFailurePercentage: number
-  conditionLevel: ConditionLevel
-  storeys: number
-  hasSecondFloor: boolean
-  accessDifficulty: 'ground' | 'single-ladder' | 'complex-scaffold'
-  recommendations: string[]
-  confidence: number
-  imageDescription?: string
-  imageSummaries?: GeminiImageSummary[]
-  estimatedPriceRangeNZD?: {
-    lowEstimate: number
-    highEstimate: number
-    midpointEstimate: number
-    assumptions: string
+export interface AutoRemovalQuoteResult {
+  estimatedPayout: {
+    low: number
+    mid: number
+    high: number
   }
-}
-
-export interface GeminiImageSummary {
-  index: number
-  description: string
-  confidence: number
-  conditionLevel: ConditionLevel
-  estimatedAreaM2: number
-}
-
-export interface QuoteInput {
-  userProvidedAreaM2: number
-  userEstimatedHeight?: number
-  userSelectedCondition?: ConditionLevel
-  imagePath?: string
-  imageBase64?: string
-  imagesBase64?: string[]
-  gemminiAnalysis?: GeminiVisionAnalysis
-  paintSystem?: 'standard' | 'premium' | 'commercial'
-  coatsRequired?: number
-  accessMethod?: 'ground' | 'single-ladder' | 'scaffolding'
-  storeyCount?: number
-  
-  // Legal & Safety - NZ Compliance
-  builtBefore1970?: boolean // Lead paint testing & removal
-  includesLeadRemoval?: boolean
-  
-  // Coastal considerations
-  withinCoastal500m?: boolean // Salt wash & high-build primer required
-  
-  // Surface condition extreme
-  hasExtensiveFlaking?: boolean // Full strip (bubbling/flaking to wood)
-  
-  // Additional items
-  includesSoffitsFascias?: boolean
-  soffisFasciasAreaM2?: number
-  joineryType?: 'timber' | 'aluminum' | 'mixed' | 'none' // Timber windows add 30+ hrs
-  numTimberFrames?: number
-}
-
-export interface PrepFactorBreakdown {
-  baseHoursPerM2: number
-  conditionMultiplier: number
-  totalPrepHours: number
-  prepCostNZD: number
-}
-
-export interface QuoteCalculation {
-  areaM2: number
-  prepFactor: PrepFactorBreakdown
-  laborHours: number
-  laborCostNZD: number
-  accessSurchargeNZD: number
-  materialsCostNZD: number
-  
-  // New NZ Compliance & Hidden Costs
-  leadRemovalCostNZD: number
-  coastalSurchargeCostNZD: number
-  soffisFasciasCostNZD: number
-  joineryWorkCostNZD: number
-  
-  subtotalNZD: number
-  gstNZD: number
-  totalNZD: number
-  breakdown: {
-    prep: number
-    labor: number
-    materials: number
-    access: number
-    compliance: number // Lead removal + coastal surcharge
-    additionalWorks: number // Soffits/fascias + joinery
-  }
+  pickupFee: number
+  netPayout: number
+  timeframe: string
   assumptions: string[]
-}
-
-export interface QuoteCalculationResponse extends QuoteCalculation {
+  highlights: string[]
   error?: string
-  geminiAnalysis?: GeminiVisionAnalysis
-  geminiImageSummaries?: GeminiImageSummary[]
 }
 
-export const CONDITION_LEVELS: Record<ConditionLevel, ConditionClassification> = {
-  level1: {
-    level: 'level1',
-    description: 'Wash & Paint - Smooth surface, no fading',
-    prepHoursPerM2: 0.15,
-    examples: ['Recently painted', 'Good condition', 'Minor dust only'],
+// Tasmania 2026 Auto Removal Pricing
+export const TAS_AUTO_REMOVAL_PRICING = {
+  // Base scrap metal payout by vehicle type (AUD)
+  BASE_PAYOUT: {
+    sedan: { low: 200, mid: 350, high: 500 },
+    suv_4wd: { low: 300, mid: 500, high: 750 },
+    ute_truck: { low: 280, mid: 470, high: 700 },
+    van: { low: 250, mid: 420, high: 620 },
+    motorcycle: { low: 80, mid: 150, high: 250 },
+    bus_truck: { low: 500, mid: 900, high: 1500 },
+    caravan_trailer: { low: 150, mid: 280, high: 450 },
   },
-  level2: {
-    level: 'level2',
-    description: 'Standard Prep - Minor fading, light sanding required',
-    prepHoursPerM2: 0.25,
-    examples: ['Slight fading', 'Minor weathering', '1-3 year old paint'],
+
+  // Condition multipliers
+  CONDITION_MULTIPLIER: {
+    running: 1.4,       // Running vehicles worth more (parts value)
+    not_running: 1.0,   // Base rate
+    damaged: 0.8,       // Damaged / accident write-off
+    stripped: 0.5,      // Already stripped of parts
+    unknown: 0.9,
   },
-  level3: {
-    level: 'level3',
-    description: 'Heavy Prep - Visible peeling, needs scraping/spot priming',
-    prepHoursPerM2: 0.6,
-    examples: ['Visible peeling', 'Flaking paint', 'Coating failure', 'Weatherboard exposure'],
+
+  // Age bonuses/penalties
+  AGE_FACTOR: {
+    under5: 1.3,        // 2021+: higher parts value
+    age5to10: 1.1,      // 2016-2020
+    age10to20: 1.0,     // 2006-2015: standard
+    over20: 0.85,       // Pre-2006: mostly scrap metal
   },
-  level4: {
-    level: 'level4',
-    description: 'Full Strip - Major coating failure, needs heat-gun stripping',
-    prepHoursPerM2: 1.1,
-    examples: ['Complete failure', 'Multiple layers failing', 'Rust/mold damage'],
+
+  // Location zone pickup fees (AUD)
+  PICKUP_FEE: {
+    hobart_metro: 0,          // Free pickup in metro Hobart
+    greater_hobart: 0,        // Free within Greater Hobart
+    south_tasmania: 50,       // Small surcharge outside metro
+    north_tasmania: 120,      // North TAS (Launceston area)
   },
+
+  // Bonuses
+  HAS_TITLE_BONUS: 50,         // Clean title adds value
+  SAME_DAY_SURCHARGE: -30,     // Same-day pickup may reduce offer slightly
+  HAZARDOUS_SURCHARGE: -40,    // Hazardous fluids cost more to process
+
+  GST_INCLUDED: true,          // All prices include GST
 }
 
-// NZ 2026 Pricing Constants
-export const NZ_PRICING_2026 = {
-  LABOR_RATE_PER_HOUR: { min: 55, mid: 65, max: 75 }, // NZD
-  MATERIAL_COST_PER_M2: { standard: 15, premium: 22, commercial: 28 }, // NZD
-  SETUP_FEE: 350, // Fixed fee for site protection, masking, setup - first day work
-  HEIGHT_SURCHARGES: {
-    under3m: 0, // Standard ladder work
-    height3to3_2m: 800, // Basic mobile tower setup for 3-3.2m heights
-    height3_2to5m: 1500, // Specialist mobile tower + higher complexity for 3.2-5m
-    height5plus: 2500, // Complex scaffolding for 5m+
-  },
-  // Crew & Timeline - Standard Residential Job
-  CREW_TIMELINE: {
-    standardCrewSize: 2, // Professional painters per team
-    productionRatePerDay: 35, // m²/day for 2-painter crew (includes prep, drying time)
-    daysPerWeek: 5, // Monday-Friday
-    bufferDaysPercent: 15, // Add 15% buffer for weather/drying (incorporated in production rate)
-  },
-  ACCESS_SURCHARGE: {
-    ground: 0,
-    singleLadder: 0,
-    twoStoreyScaffolding: { min: 2000, mid: 3500, max: 5000 },
-    complexScaffolding: { min: 5000, mid: 7500, max: 10000 },
-  },
-  APPLICATION_HOURS_PER_COAT_PER_M2: 0.2, // More realistic coating time (was 0.15)
-  
-  // Legal & Safety - NZ Compliance (Issue #1)
-  LEAD_PAINT: {
-    testingFee: 400, // Lead testing kit & lab analysis
-    removalHoursPerM2: 0.5, // Wet-strip removal is labor-intensive
-    hazmatDisposalPerLoad: 300, // Sealed waste disposal
-    costPerM2: 15, // Additional materials (primers, sealants)
-  },
-  
-  // Coastal Surcharge - Common in Auckland/Newcastle
-  COASTAL_SURCHARGE: {
-    saltWashPrep: 600, // Pre-wash for salt removal
-    highBuildPrimerPerM2: 8, // Thicker primer for coastal
-    additionalCoatPerM2: 5, // Salt deterioration requires extra coat
-  },
-  
-  // Hidden Cost Items
-  SOFFITS_FASCIAS: {
-    hoursPerM2: 0.6, // More detailed work than walls
-    materialCostPerM2: { standard: 8, premium: 14, commercial: 18 }, // Different paint/finishes
-  },
-  JOINERY_WORK: {
-    timberFrame: 2.5, // Hours per frame (complex masking, cutting in, drying)
-    aluminiumFrame: 0.3, // Much faster (no absorption, spray-friendly)
-    estimatedFramesPerWindow: 0.5, // Partial doors/transom glazed areas
-  },
-  
-  GST_RATE: 0.15,
-  DOOR_HEIGHT_M: 1.98, // Standard NZ external door for reference scaling
-  WEATHERBOARD_WIDTH_MM: 150,
+export const LOCATION_ZONE_LABELS: Record<LocationZone, string> = {
+  hobart_metro: 'Hobart Metro (CBD, Sandy Bay, Glenorchy)',
+  greater_hobart: 'Greater Hobart (Clarence, Kingborough, Derwent Valley)',
+  south_tasmania: 'Southern Tasmania (Huon Valley, Channel, Sorell)',
+  north_tasmania: 'Northern Tasmania (Launceston, Devonport, Burnie)',
 }
 
-export const CUTTING_IN_NO_SUBTRACT = true // Pro rule: Don't subtract windows/doors
+export const VEHICLE_TYPE_LABELS: Record<VehicleType, string> = {
+  sedan: 'Car / Sedan / Hatchback',
+  suv_4wd: 'SUV / 4WD / Crossover',
+  ute_truck: 'Ute / Light Truck',
+  van: 'Van / People Mover',
+  motorcycle: 'Motorcycle / Scooter',
+  bus_truck: 'Bus / Heavy Truck',
+  caravan_trailer: 'Caravan / Trailer',
+}
+
+export const VEHICLE_CONDITION_LABELS: Record<VehicleCondition, string> = {
+  running: 'Running & Drives',
+  not_running: 'Not Running (Engine Issues)',
+  damaged: 'Accident Damaged / Written Off',
+  stripped: 'Already Stripped / Parts Removed',
+  unknown: 'Unknown / Unsure',
+}

@@ -4,54 +4,42 @@ import React from 'react'
 import { Card } from '@/components/ui/card'
 import { Check } from 'lucide-react'
 
-/**
- * Quote Pricing Examples Section
- * Shows typical quotes for different scenarios
- */
-
 const EXAMPLE_QUOTES = [
   {
-    title: 'Small Single Storey',
-    area: '30m²',
-    condition: 'Good condition (Level 2)',
-    description: 'Weathered but sound',
-    estimate: '$1,656',
-    breakdown: {
-      labor: '$780',
-      materials: '$660',
-      access: '$0',
-    },
-    timeline: '2-3 days',
-    features: ['Standard prep', 'Light sanding', 'Premium paint'],
+    title: 'Old Sedan / Hatchback',
+    vehicle: '2005–2012 Toyota Corolla or Similar',
+    condition: 'Not Running — Engine Seized',
+    description: 'Common category — scrap value straightforward',
+    estimate: '$200–$350',
+    midEstimate: '$280',
+    pickup: 'FREE',
+    timeframe: '24 hours',
+    features: ['Free tow truck pickup', 'Cash on the spot', 'Same-day available', 'Title required'],
+    highlighted: false,
   },
   {
-    title: 'Medium Villa - Peeling',
-    area: '45m²',
-    condition: 'Heavy prep (Level 3)',
-    description: 'Visible peeling, needs scraping',
-    estimate: '$8,949',
-    breakdown: {
-      labor: `$2,047`,
-      materials: '$990',
-      access: '$3,500',
-    },
-    timeline: '5-6 days',
-    features: ['Scraping required', 'Spot priming', 'Scaffolding', '2-storey'],
+    title: 'SUV / 4WD',
+    vehicle: '2008–2018 Ford Ranger, LC200, Patrol',
+    condition: 'Accident Damaged / Write-Off',
+    description: 'Larger vehicles with more scrap & parts value',
+    estimate: '$350–$700',
+    midEstimate: '$500',
+    pickup: 'FREE',
+    timeframe: '24–48 hours',
+    features: ['Free tow truck pickup', 'Top cash paid', 'Insurance write-off accepted', 'No roadworthy needed'],
     highlighted: true,
   },
   {
-    title: 'Large Family Home',
-    area: '80m²',
-    condition: 'Maintenance (Level 2)',
-    description: 'Regular upkeep',
-    estimate: '$4,782',
-    breakdown: {
-      labor: '$2,080',
-      materials: '$1,760',
-      access: '$0',
-    },
-    timeline: '4-5 days',
-    features: ['Single storey', 'Premium coating', 'Full surface coverage'],
+    title: 'Motorcycle / Scooter',
+    vehicle: 'Any make & model',
+    condition: 'Any Condition',
+    description: 'Bikes, scooters, and ATVs all accepted',
+    estimate: '$80–$250',
+    midEstimate: '$150',
+    pickup: 'FREE',
+    timeframe: '1–3 days',
+    features: ['Free collection', 'Running or not', 'Old or damaged OK', 'Fast turnaround'],
+    highlighted: false,
   },
 ]
 
@@ -62,13 +50,13 @@ export function QuotePricingExamples() {
         {/* Header */}
         <div className="text-center mb-16">
           <p className="text-xs font-semibold uppercase tracking-widest mb-3" style={{ color: '#f97316' }}>
-            Transparent Pricing
+            Transparent Payouts
           </p>
           <h2 className="font-serif text-4xl lg:text-5xl text-balance mb-4" style={{ color: '#0f172a' }}>
-            Real Quote Examples
+            Example Cash Payouts
           </h2>
           <p className="text-base max-w-2xl mx-auto" style={{ color: '#64748b' }}>
-            Based on professional man-hour algorithm. All quotes include GST and cover full surface preparation to bare wood/compound if needed.
+            Real payout ranges based on current scrap metal prices and parts value in Tasmania. Final offer confirmed at pickup.
           </p>
         </div>
 
@@ -83,13 +71,21 @@ export function QuotePricingExamples() {
                   : 'border-slate-200'
               }`}
             >
+              {quote.highlighted && (
+                <div className="mb-4">
+                  <span className="text-xs font-bold uppercase tracking-widest px-3 py-1 rounded-full" style={{ backgroundColor: '#f97316', color: 'white' }}>
+                    Most Common
+                  </span>
+                </div>
+              )}
+
               {/* Header */}
               <div className="mb-6">
                 <h3 className="font-semibold text-lg mb-1" style={{ color: '#0f172a' }}>
                   {quote.title}
                 </h3>
                 <p className="text-sm" style={{ color: '#94a3b8' }}>
-                  {quote.area}
+                  {quote.vehicle}
                 </p>
               </div>
 
@@ -109,41 +105,17 @@ export function QuotePricingExamples() {
               {/* Price */}
               <div className="mb-6 py-4 border-y border-slate-200">
                 <p className="text-xs font-semibold mb-1" style={{ color: '#94a3b8' }}>
-                  ESTIMATED TOTAL (Inc. GST)
+                  ESTIMATED CASH PAYOUT
                 </p>
                 <p className="text-3xl font-bold" style={{ color: '#0f172a' }}>
-                  {quote.estimate}
+                  {quote.midEstimate}
                 </p>
-                <p className="text-xs mt-2" style={{ color: '#64748b' }}>
-                  Timeline: {quote.timeline}
+                <p className="text-xs mt-1" style={{ color: '#64748b' }}>
+                  Range: {quote.estimate} · Pickup: {quote.pickup}
                 </p>
-              </div>
-
-              {/* Breakdown */}
-              <div className="mb-6 space-y-2">
-                <p className="text-xs font-semibold mb-3" style={{ color: '#94a3b8' }}>
-                  COST BREAKDOWN
+                <p className="text-xs mt-0.5" style={{ color: '#64748b' }}>
+                  Timeframe: {quote.timeframe}
                 </p>
-                <div className="flex justify-between text-sm">
-                  <span style={{ color: '#64748b' }}>Labor</span>
-                  <span style={{ color: '#0f172a' }} className="font-medium">
-                    {quote.breakdown.labor}
-                  </span>
-                </div>
-                <div className="flex justify-between text-sm">
-                  <span style={{ color: '#64748b' }}>Materials</span>
-                  <span style={{ color: '#0f172a' }} className="font-medium">
-                    {quote.breakdown.materials}
-                  </span>
-                </div>
-                {quote.breakdown.access !== '$0' && (
-                  <div className="flex justify-between text-sm">
-                    <span style={{ color: '#64748b' }}>Access/Scaffolding</span>
-                    <span style={{ color: '#0f172a' }} className="font-medium">
-                      {quote.breakdown.access}
-                    </span>
-                  </div>
-                )}
               </div>
 
               {/* Features */}
@@ -164,7 +136,7 @@ export function QuotePricingExamples() {
         {/* What's Included */}
         <Card className="p-8 border border-slate-200 bg-white">
           <h3 className="font-semibold text-lg mb-4" style={{ color: '#0f172a' }}>
-            What's Included in Every Quote
+            What's Included with Every Removal
           </h3>
 
           <div className="grid md:grid-cols-2 gap-8">
@@ -173,10 +145,10 @@ export function QuotePricingExamples() {
                 <Check className="w-5 h-5 flex-shrink-0" style={{ color: '#f97316' }} />
                 <div>
                   <p className="font-medium" style={{ color: '#0f172a' }}>
-                    Professional Surface Preparation
+                    Free Tow Truck Pickup
                   </p>
                   <p className="text-sm mt-1" style={{ color: '#64748b' }}>
-                    Cleaning, sanding, filling, and priming based on condition
+                    No towing fees — we come to you anywhere in Greater Hobart
                   </p>
                 </div>
               </div>
@@ -185,10 +157,10 @@ export function QuotePricingExamples() {
                 <Check className="w-5 h-5 flex-shrink-0" style={{ color: '#f97316' }} />
                 <div>
                   <p className="font-medium" style={{ color: '#0f172a' }}>
-                    Premium NZ Paint Materials
+                    Cash Paid on the Spot
                   </p>
                   <p className="text-sm mt-1" style={{ color: '#64748b' }}>
-                    Resene or Dulux with UV protection for NZ climate
+                    Instant payment at pickup — no waiting, no bank delays
                   </p>
                 </div>
               </div>
@@ -197,10 +169,10 @@ export function QuotePricingExamples() {
                 <Check className="w-5 h-5 flex-shrink-0" style={{ color: '#f97316' }} />
                 <div>
                   <p className="font-medium" style={{ color: '#0f172a' }}>
-                    Full Coverage Application
+                    All Vehicle Types Accepted
                   </p>
                   <p className="text-sm mt-1" style={{ color: '#64748b' }}>
-                    Minimum 2 coats with proper coverage (not just 1x prime + 1x topcoat)
+                    Cars, SUVs, utes, vans, trucks, motorcycles, caravans
                   </p>
                 </div>
               </div>
@@ -211,10 +183,10 @@ export function QuotePricingExamples() {
                 <Check className="w-5 h-5 flex-shrink-0" style={{ color: '#f97316' }} />
                 <div>
                   <p className="font-medium" style={{ color: '#0f172a' }}>
-                    Site Protection
+                    Any Condition Accepted
                   </p>
                   <p className="text-sm mt-1" style={{ color: '#64748b' }}>
-                    Covering landscaping, masking windows, floor protection
+                    Wrecked, rusted, flooded, non-running — we take them all
                   </p>
                 </div>
               </div>
@@ -223,10 +195,10 @@ export function QuotePricingExamples() {
                 <Check className="w-5 h-5 flex-shrink-0" style={{ color: '#f97316' }} />
                 <div>
                   <p className="font-medium" style={{ color: '#0f172a' }}>
-                    WorkSafe Compliance
+                    Eco-Friendly Recycling
                   </p>
                   <p className="text-sm mt-1" style={{ color: '#64748b' }}>
-                    Professional scaffolding and safety precautions where needed
+                    Responsible fluid disposal and material recycling in Tasmania
                   </p>
                 </div>
               </div>
@@ -235,10 +207,10 @@ export function QuotePricingExamples() {
                 <Check className="w-5 h-5 flex-shrink-0" style={{ color: '#f97316' }} />
                 <div>
                   <p className="font-medium" style={{ color: '#0f172a' }}>
-                    Liam's Personal Review
+                    Paperwork Handled
                   </p>
                   <p className="text-sm mt-1" style={{ color: '#64748b' }}>
-                    Every estimate reviewed by hand - not just algorithms
+                    We manage transfer of ownership documentation for you
                   </p>
                 </div>
               </div>
@@ -246,12 +218,12 @@ export function QuotePricingExamples() {
           </div>
         </Card>
 
-        {/* Notes */}
+        {/* Note */}
         <div className="mt-8 p-6 rounded-lg border border-amber-200" style={{ backgroundColor: '#fffbeb' }}>
           <p className="text-sm" style={{ color: '#92400e' }}>
-            <span className="font-semibold">💡 Note:</span> These are example estimates based on 2026 NZ labor rates ($55-$75/hr) and
-            material costs. Final quotes depend on actual site conditions, weather windows, and scaffolding requirements. Every
-            estimate includes full GST and covers the entire exterior wall area.
+            <span className="font-semibold">💡 Note:</span> Payout amounts are estimates based on current scrap metal
+            and parts market prices in Tasmania (2026). Final offers are confirmed at time of pickup following vehicle
+            inspection. Prices include GST.
           </p>
         </div>
       </div>

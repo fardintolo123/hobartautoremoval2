@@ -1,127 +1,25 @@
 'use server'
 
-import PainterQuoteEngine from './quote-engine'
-import GeminiVisionAnalyzer from './gemini-analyzer'
-import { QuoteInput, QuoteCalculationResponse } from './types'
+import { calculateAutoRemovalQuote } from './quote-engine'
+import { AutoRemovalQuoteInput, AutoRemovalQuoteResult } from './types'
 
 /**
- * Server-side quote calculation with Gemini image analysis
- * This runs on the backend to keep the API key secure
+ * Server action: Calculate auto removal quote for Hobart, Tasmania
  */
-
-export async function calculateQuoteWithImage(
-  input: QuoteInput
-): Promise<QuoteCalculationResponse> {
+export async function getAutoRemovalQuote(
+  input: AutoRemovalQuoteInput
+): Promise<AutoRemovalQuoteResult> {
   try {
-    const apiKey = process.env.GOOGLE_GEMINI_API_KEY
-    console.log('API KEY EXISTS:', !!apiKey)
-    console.log('🔍 API Key Check:', apiKey ? '✅ FOUND' : '❌ MISSING')
-    
-    if (!apiKey) {
-      throw new Error('GOOGLE_GEMINI_API_KEY not configured')
-    }
-
-    const imagePayloads = (input.imagesBase64 || []).filter(Boolean)
-    if (input.imageBase64) {
-      imagePayloads.push(input.imageBase64)
-    }
-
-    // If images are provided, analyze with Gemini
-    if (imagePayloads.length > 0) {
-      if (imagePayloads.length > 5) {
-        throw new Error('Maximum 5 images are supported')
-      }
-
-      console.log('📸 Starting Gemini Vision Analysis...')
-      const analyzer = new GeminiVisionAnalyzer(apiKey)
-      const analysis =
-        imagePayloads.length === 1
-          ? await analyzer.analyzeImage(imagePayloads[0])
-          : await analyzer.analyzeImages(imagePayloads)
-
-      console.log('✅ Gemini Analysis Complete:', {
-        area: analysis.estimatedAreaM2.toFixed(1) + ' m²',
-        height: analysis.estimatedHeightM?.toFixed(1) + ' m',
-        condition: analysis.conditionLevel,
-        storeys: analysis.storeys,
-        confidence: analysis.confidence + '%',
-        priceRange: (analysis as any).estimatedPriceRangeNZD,
-      })
-
-      // Check confidence
-      if (!analyzer.validateConfidence(analysis, 70)) {
-        console.warn(`⚠️ Low confidence analysis: ${analysis.confidence}%`)
-      }
-
-      input.gemminiAnalysis = analysis
-    }
-
-    // Calculate quote using the engine
-    const engine = new PainterQuoteEngine()
-    const quote = engine.calculate(input)
-
-    return {
-      ...quote,
-      geminiAnalysis: input.gemminiAnalysis,
-      geminiImageSummaries: input.gemminiAnalysis?.imageSummaries,
-    }
+    return calculateAutoRemovalQuote(input)
   } catch (error) {
     return {
-      areaM2: 0,
-      prepFactor: {
-        baseHoursPerM2: 0,
-        conditionMultiplier: 0,
-        totalPrepHours: 0,
-        prepCostNZD: 0,
-      },
-      laborHours: 0,
-      laborCostNZD: 0,
-      accessSurchargeNZD: 0,
-      materialsCostNZD: 0,
-      leadRemovalCostNZD: 0,
-      coastalSurchargeCostNZD: 0,
-      soffisFasciasCostNZD: 0,
-      joineryWorkCostNZD: 0,
-      subtotalNZD: 0,
-      gstNZD: 0,
-      totalNZD: 0,
-      breakdown: { prep: 0, labor: 0, materials: 0, access: 0, compliance: 0, additionalWorks: 0 },
+      estimatedPayout: { low: 0, mid: 0, high: 0 },
+      pickupFee: 0,
+      netPayout: 0,
+      timeframe: 'Unknown',
       assumptions: [],
-      error: error instanceof Error ? error.message : 'Unknown error occurred',
-    }
-  }
-}
-
-/**
- * Simple quote calculation without image (for text-only requests)
- */
-export async function calculateQuote(input: QuoteInput): Promise<QuoteCalculationResponse> {
-  try {
-    const engine = new PainterQuoteEngine()
-    return engine.calculate(input)
-  } catch (error) {
-    return {
-      areaM2: 0,
-      prepFactor: {
-        baseHoursPerM2: 0,
-        conditionMultiplier: 0,
-        totalPrepHours: 0,
-        prepCostNZD: 0,
-      },
-      laborHours: 0,
-      laborCostNZD: 0,
-      accessSurchargeNZD: 0,
-      materialsCostNZD: 0,
-      leadRemovalCostNZD: 0,
-      coastalSurchargeCostNZD: 0,
-      soffisFasciasCostNZD: 0,
-      joineryWorkCostNZD: 0,
-      subtotalNZD: 0,
-      gstNZD: 0,
-      totalNZD: 0,
-      breakdown: { prep: 0, labor: 0, materials: 0, access: 0, compliance: 0, additionalWorks: 0 },
-      assumptions: [],
-      error: error instanceof Error ? error.message : 'Unknown error occurred',
+      highlights: [],
+      error: error instanceof Error ? error.message : 'Failed to calculate quote',
     }
   }
 }
