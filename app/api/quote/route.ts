@@ -5,27 +5,43 @@ import { QuoteInput } from '@/lib/types'
 /**
  * POST /api/quote
  * 
- * Calculate a painting quote with optional image analysis
+ * Calculate a car removal quote with optional image analysis
  * 
  * Request body:
  * {
- *   imageBase64?: string,           // Base64 encoded image (without data: prefix)
- *   userProvidedAreaM2?: number,    // Wall area in square meters
- *   userEstimatedHeight?: number,   // Optional height estimate
- *   userSelectedCondition?: ConditionLevel,
- *   storeyCount?: number,
- *   paintSystem?: 'standard' | 'premium' | 'commercial',
- *   coatsRequired?: number,
- *   accessMethod?: 'ground' | 'single-ladder' | 'scaffolding'
+ *   vehicleType: VehicleType,
+ *   vehicleYear: number,
+ *   vehicleCondition: VehicleCondition,
+ *   locationPostcode: string,
+ *   mileage?: number,
+ *   imagesBase64?: string[],         // Array of base64 encoded images
+ *   hasHazardousMaterials?: boolean,
+ *   needsFluidDraining?: boolean,
+ *   needsInternalRemoval?: boolean,
+ *   needsDisassembly?: boolean,
+ *   towingDistanceKm?: number
  * }
  * 
  * Response:
  * {
- *   areaM2: number,
- *   laborHours: number,
- *   totalNZD: number,
- *   breakdown: { prep, labor, materials, access },
+ *   vehicleType: VehicleType,
+ *   vehicleYear: number,
+ *   vehicleCondition: VehicleCondition,
+ *   locationPostcode: string,
+ *   baseFeeAUD: number,
+ *   conditionAdjustmentAUD: number,
+ *   locationSurchargeAUD: number,
+ *   hazardousMaterialsFeeAUD: number,
+ *   fluidDrainingFeeAUD: number,
+ *   internalRemovalFeeAUD: number,
+ *   disassemblyFeeAUD: number,
+ *   towingFeeAUD: number,
+ *   subtotalAUD: number,
+ *   gstAUD: number,
+ *   totalAUD: number,
  *   assumptions: string[],
+ *   geminiAnalysis?: GeminiVisionAnalysis,
+ *   geminiImageSummaries?: GeminiImageSummary[],
  *   error?: string
  * }
  */
@@ -34,37 +50,38 @@ export async function POST(request: NextRequest) {
     const body = await request.json()
 
     // Validate request
-    if (!body.userProvidedAreaM2 && !body.imageBase64) {
+    if (!body.vehicleType || !body.vehicleYear || !body.vehicleCondition || !body.locationPostcode) {
       return NextResponse.json(
-        { error: 'Either imageBase64 or userProvidedAreaM2 is required' },
+        { error: 'vehicleType, vehicleYear, vehicleCondition, and locationPostcode are required' },
         { status: 400 }
       )
     }
 
     // Rate limiting (basic - check client IP)
     const clientIp = request.headers.get('x-forwarded-for') || 'unknown'
-    console.log(`Quote request from IP: ${clientIp}`)
+    console.log(`Car removal quote request from IP: ${clientIp}`)
 
     // Prepare input
     const quoteInput: QuoteInput = {
-      userProvidedAreaM2: body.userProvidedAreaM2 || 0,
-      userEstimatedHeight: body.userEstimatedHeight,
-      userSelectedCondition: body.userSelectedCondition || 'level2',
-      storeyCount: body.storeyCount || 1,
-      paintSystem: body.paintSystem || 'premium',
-      coatsRequired: body.coatsRequired || 2,
-      accessMethod: body.accessMethod,
+      vehicleType: body.vehicleType,
+      vehicleYear: parseInt(body.vehicleYear),
+      vehicleCondition: body.vehicleCondition,
+      locationPostcode: body.locationPostcode,
+      mileage: body.mileage ? parseInt(body.mileage) : undefined,
+      imagesBase64: body.imagesBase64,
+      hasHazardousMaterials: body.hasHazardousMaterials || false,
+      needsFluidDraining: body.needsFluidDraining || false,
+      needsInternalRemoval: body.needsInternalRemoval || false,
+      needsDisassembly: body.needsDisassembly || false,
+      towingDistanceKm: body.towingDistanceKm ? parseFloat(body.towingDistanceKm) : 0,
     }
 
     // Calculate quote
     let result: any
 
-    if (body.imageBase64) {
+    if (body.imagesBase64 && body.imagesBase64.length > 0) {
       // With image analysis
-      result = await calculateQuoteWithImage({
-        ...quoteInput,
-        imageBase64: body.imageBase64,
-      })
+      result = await calculateQuoteWithImage(quoteInput)
     } else {
       // Text-only quote
       result = await calculateQuote(quoteInput)

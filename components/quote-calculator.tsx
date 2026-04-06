@@ -1,39 +1,71 @@
 'use client'
 
-import React, { useState } from 'react'
+import React, { useState, useRef } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Card } from '@/components/ui/card'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Checkbox } from '@/components/ui/checkbox'
-import {
-  VehicleType,
-  VehicleCondition,
-  LocationZone,
-  AutoRemovalQuoteInput,
-  AutoRemovalQuoteResult,
-  VEHICLE_TYPE_LABELS,
-  VEHICLE_CONDITION_LABELS,
-  LOCATION_ZONE_LABELS,
-} from '@/lib/types'
-import { getAutoRemovalQuote } from '@/lib/quote-actions'
-import { Car, Loader2, AlertCircle, CheckCircle2, DollarSign, MapPin, Clock, Recycle } from 'lucide-react'
+import { VehicleType, VehicleCondition, QuoteCalculationResponse } from '@/lib/types'
+import { calculateQuoteWithImage, calculateQuote } from '@/lib/quote-actions'
+import { Upload, Loader2, AlertCircle, CheckCircle2, DollarSign, Truck, MapPin } from 'lucide-react'
 
 export function QuoteCalculator() {
   const [vehicleType, setVehicleType] = useState<VehicleType>('sedan')
-  const [vehicleCondition, setVehicleCondition] = useState<VehicleCondition>('not_running')
   const [vehicleYear, setVehicleYear] = useState('')
-  const [vehicleMake, setVehicleMake] = useState('')
-  const [locationZone, setLocationZone] = useState<LocationZone>('hobart_metro')
-  const [hasTitle, setHasTitle] = useState(true)
-  const [isOnPrivateProperty, setIsOnPrivateProperty] = useState(true)
-  const [requiresSameDayPickup, setRequiresSameDayPickup] = useState(false)
-  const [hasHazardousFluid, setHasHazardousFluid] = useState(false)
-
+  const [vehicleCondition, setVehicleCondition] = useState<VehicleCondition>('good')
+  const [locationPostcode, setLocationPostcode] = useState('')
+  const [mileage, setMileage] = useState('')
+  const [images, setImages] = useState<File[]>([])
+  const [imagePreviews, setImagePreviews] = useState<string[]>([])
   const [loading, setLoading] = useState(false)
-  const [quote, setQuote] = useState<AutoRemovalQuoteResult | null>(null)
+  const [quote, setQuote] = useState<QuoteCalculationResponse | null>(null)
   const [error, setError] = useState<string>('')
+
+  // Additional Services
+  const [hasHazardousMaterials, setHasHazardousMaterials] = useState(false)
+  const [needsFluidDraining, setNeedsFluidDraining] = useState(false)
+  const [needsInternalRemoval, setNeedsInternalRemoval] = useState(false)
+  const [needsDisassembly, setNeedsDisassembly] = useState(false)
+  const [towingDistanceKm, setTowingDistanceKm] = useState('')
+
+  const fileInputRef = useRef<HTMLInputElement>(null)
+
+  const readFileAsDataUrl = (file: File): Promise<string> =>
+    new Promise((resolve, reject) => {
+      const reader = new FileReader()
+      reader.onload = (event) => resolve((event.target?.result as string) || '')
+      reader.onerror = () => reject(new Error(`Failed to read file: ${file.name}`))
+      reader.readAsDataURL(file)
+    })
+
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const selectedFiles = Array.from(e.target.files || [])
+    if (selectedFiles.length === 0) return
+
+    const combined = [...images, ...selectedFiles].slice(0, 5)
+    if (images.length + selectedFiles.length > 5) {
+      setError('You can upload up to 5 images')
+    }
+
+    try {
+      const previews = await Promise.all(combined.map(readFileAsDataUrl))
+      setImages(combined)
+      setImagePreviews(previews)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to load image previews')
+    } finally {
+      if (fileInputRef.current) {
+        fileInputRef.current.value = ''
+      }
+    }
+  }
+
+  const removeImageAt = (index: number) => {
+    setImages((prev) => prev.filter((_, idx) => idx !== index))
+    setImagePreviews((prev) => prev.filter((_, idx) => idx !== index))
+  }
 
   const handleCalculate = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -41,19 +73,48 @@ export function QuoteCalculator() {
     setLoading(true)
 
     try {
-      const input: AutoRemovalQuoteInput = {
-        vehicleType,
-        vehicleCondition,
-        vehicleYear,
-        vehicleMake,
-        locationZone,
-        hasTitle,
-        isOnPrivateProperty,
-        requiresSameDayPickup,
-        hasHazardousFluid,
+      if (!vehicleType || !vehicleYear || !locationPostcode) {
+        setError('Please fill in all required fields')
+        setLoading(false)
+        return
       }
 
-      const result = await getAutoRemovalQuote(input)
+      let result: any
+
+      if (imagePreviews.length > 0) {
+        const imagesBase64 = imagePreviews
+          .map((preview) => preview.split(',')[1])
+          .filter(Boolean)
+
+        result = await calculateQuoteWithImage({
+          vehicleType,
+          vehicleYear: parseInt(vehicleYear),
+          vehicleCondition,
+          locationPostcode,
+          mileage: mileage ? parseInt(mileage) : undefined,
+          imagesBase64,
+          // Additional Services
+          hasHazardousMaterials,
+          needsFluidDraining,
+          needsInternalRemoval,
+          needsDisassembly,
+          towingDistanceKm: towingDistanceKm ? parseFloat(towingDistanceKm) : 0,
+        })
+      } else {
+        result = await calculateQuote({
+          vehicleType,
+          vehicleYear: parseInt(vehicleYear),
+          vehicleCondition,
+          locationPostcode,
+          mileage: mileage ? parseInt(mileage) : undefined,
+          // Additional Services
+          hasHazardousMaterials,
+          needsFluidDraining,
+          needsInternalRemoval,
+          needsDisassembly,
+          towingDistanceKm: towingDistanceKm ? parseFloat(towingDistanceKm) : 0,
+        })
+      }
 
       if (result.error) {
         setError(result.error)
@@ -70,185 +131,278 @@ export function QuoteCalculator() {
   return (
     <div className="space-y-8 max-w-4xl mx-auto px-4">
       {/* Input Form */}
-      <Card className="p-8 border border-slate-200 shadow-sm">
+      <Card className="p-8 border border-slate-200">
         <form onSubmit={handleCalculate} className="space-y-6">
-          {/* Header */}
           <div>
-            <div className="flex items-center gap-3 mb-2">
-              <div className="w-10 h-10 rounded-full bg-orange-100 flex items-center justify-center">
-                <Car className="w-5 h-5 text-orange-500" />
-              </div>
-              <h3 className="text-xl font-bold" style={{ color: '#0f172a' }}>
-                Instant Car Removal Quote
-              </h3>
-            </div>
+            <h3 className="text-lg font-semibold mb-4 flex items-center gap-2" style={{ color: '#0f172a' }}>
+              <Truck className="w-5 h-5" />
+              Professional Car Removal Quote Calculator
+            </h3>
             <p className="text-sm" style={{ color: '#64748b' }}>
-              Get an instant estimate for your unwanted vehicle. Free towing across Hobart &amp; Tasmania.
+              Based on 2026 Tasmania market rates. Environmentally compliant vehicle disposal.
             </p>
           </div>
 
-          {/* Vehicle Type + Year */}
+          {/* Image Upload */}
+          <div className="space-y-3">
+            <Label className="text-sm font-medium" style={{ color: '#0f172a' }}>
+              Upload Vehicle Photos (Optional - For AI Analysis)
+            </Label>
+            <div
+              className="border-2 border-dashed rounded-lg p-6 text-center cursor-pointer hover:bg-slate-50 transition"
+              onClick={() => fileInputRef.current?.click()}
+            >
+              {imagePreviews.length > 0 ? (
+                <div className="space-y-3">
+                  <p className="text-sm font-medium" style={{ color: '#0f172a' }}>
+                    {images.length} image{images.length > 1 ? 's' : ''} selected
+                  </p>
+                  <div className="grid grid-cols-2 gap-3">
+                    {imagePreviews.map((preview, idx) => (
+                      <div key={`${images[idx]?.name || 'image'}-${idx}`} className="space-y-2">
+                        <img
+                          src={preview}
+                          alt={`Preview ${idx + 1}`}
+                          className="max-h-28 mx-auto rounded"
+                        />
+                        <p className="text-xs truncate" style={{ color: '#0f172a' }}>
+                          {images[idx]?.name || `Image ${idx + 1}`}
+                        </p>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            removeImageAt(idx)
+                          }}
+                        >
+                          Remove
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  <Upload className="w-8 h-8 mx-auto" style={{ color: '#f97316' }} />
+                  <p className="text-sm font-medium" style={{ color: '#0f172a' }}>
+                    Click to upload vehicle photos
+                  </p>
+                  <p className="text-xs" style={{ color: '#94a3b8' }}>
+                    JPEG or PNG, max 10MB each, up to 5 images. Include exterior, interior, and any damage.
+                  </p>
+                </div>
+              )}
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                multiple
+                onChange={handleImageUpload}
+                className="hidden"
+                disabled={loading}
+              />
+            </div>
+          </div>
+
+          {/* Vehicle Details */}
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="vehicleType" className="text-sm font-medium" style={{ color: '#0f172a' }}>
-                Vehicle Type
+              <Label htmlFor="vehicle-type" className="text-sm font-medium" style={{ color: '#0f172a' }}>
+                Vehicle Type *
               </Label>
               <Select value={vehicleType} onValueChange={(v) => setVehicleType(v as VehicleType)}>
                 <SelectTrigger className="h-11 border-slate-200">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {(Object.keys(VEHICLE_TYPE_LABELS) as VehicleType[]).map((key) => (
-                    <SelectItem key={key} value={key}>
-                      {VEHICLE_TYPE_LABELS[key]}
-                    </SelectItem>
-                  ))}
+                  <SelectItem value="motorcycle">Motorcycle</SelectItem>
+                  <SelectItem value="sedan">Sedan</SelectItem>
+                  <SelectItem value="ute">Ute</SelectItem>
+                  <SelectItem value="van">Van</SelectItem>
+                  <SelectItem value="suv">SUV</SelectItem>
+                  <SelectItem value="truck">Truck</SelectItem>
+                  <SelectItem value="caravan">Caravan</SelectItem>
+                  <SelectItem value="other">Other</SelectItem>
                 </SelectContent>
               </Select>
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="vehicleYear" className="text-sm font-medium" style={{ color: '#0f172a' }}>
-                Year of Manufacture
+              <Label htmlFor="vehicle-year" className="text-sm font-medium" style={{ color: '#0f172a' }}>
+                Vehicle Year *
               </Label>
               <Input
-                id="vehicleYear"
+                id="vehicle-year"
                 type="number"
-                placeholder="e.g., 2010"
+                placeholder="e.g., 2015"
                 value={vehicleYear}
                 onChange={(e) => setVehicleYear(e.target.value)}
-                min={1950}
-                max={2026}
+                min="1900"
+                max="2026"
                 className="h-11 border-slate-200"
+                required
               />
             </div>
           </div>
 
-          {/* Make + Condition */}
+          {/* Condition and Location */}
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="vehicleMake" className="text-sm font-medium" style={{ color: '#0f172a' }}>
-                Make / Model <span className="text-slate-400 font-normal">(Optional)</span>
-              </Label>
-              <Input
-                id="vehicleMake"
-                type="text"
-                placeholder="e.g., Toyota Corolla"
-                value={vehicleMake}
-                onChange={(e) => setVehicleMake(e.target.value)}
-                className="h-11 border-slate-200"
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="vehicleCondition" className="text-sm font-medium" style={{ color: '#0f172a' }}>
-                Vehicle Condition
+              <Label htmlFor="condition" className="text-sm font-medium" style={{ color: '#0f172a' }}>
+                Vehicle Condition *
               </Label>
               <Select value={vehicleCondition} onValueChange={(v) => setVehicleCondition(v as VehicleCondition)}>
                 <SelectTrigger className="h-11 border-slate-200">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {(Object.keys(VEHICLE_CONDITION_LABELS) as VehicleCondition[]).map((key) => (
-                    <SelectItem key={key} value={key}>
-                      {VEHICLE_CONDITION_LABELS[key]}
-                    </SelectItem>
-                  ))}
+                  <SelectItem value="excellent">Excellent (Low mileage, minimal wear)</SelectItem>
+                  <SelectItem value="good">Good (Moderate wear, running well)</SelectItem>
+                  <SelectItem value="fair">Fair (Some wear, needs minor work)</SelectItem>
+                  <SelectItem value="poor">Poor (Significant wear/damage)</SelectItem>
+                  <SelectItem value="nonrunning">Non-running (Won't start)</SelectItem>
+                  <SelectItem value="damaged">Damaged (Major structural damage)</SelectItem>
                 </SelectContent>
               </Select>
             </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="postcode" className="text-sm font-medium flex items-center gap-1" style={{ color: '#0f172a' }}>
+                <MapPin className="w-4 h-4" />
+                Postcode *
+              </Label>
+              <Input
+                id="postcode"
+                type="text"
+                placeholder="e.g., 7000"
+                value={locationPostcode}
+                onChange={(e) => setLocationPostcode(e.target.value)}
+                className="h-11 border-slate-200"
+                required
+              />
+              <p className="text-xs" style={{ color: '#94a3b8' }}>
+                For location-based pricing
+              </p>
+            </div>
           </div>
 
-          {/* Location */}
+          {/* Mileage */}
           <div className="space-y-2">
-            <Label htmlFor="locationZone" className="text-sm font-medium" style={{ color: '#0f172a' }}>
-              <MapPin className="inline w-4 h-4 mr-1 mb-0.5" />
-              Your Location (Tasmania)
+            <Label htmlFor="mileage" className="text-sm font-medium" style={{ color: '#0f172a' }}>
+              Mileage (Optional)
             </Label>
-            <Select value={locationZone} onValueChange={(v) => setLocationZone(v as LocationZone)}>
-              <SelectTrigger className="h-11 border-slate-200">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {(Object.keys(LOCATION_ZONE_LABELS) as LocationZone[]).map((key) => (
-                  <SelectItem key={key} value={key}>
-                    {LOCATION_ZONE_LABELS[key]}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <Input
+              id="mileage"
+              type="number"
+              placeholder="e.g., 150000"
+              value={mileage}
+              onChange={(e) => setMileage(e.target.value)}
+              step="1000"
+              className="h-11 border-slate-200"
+            />
+            <p className="text-xs" style={{ color: '#94a3b8' }}>
+              Helps with condition assessment
+            </p>
           </div>
 
-          {/* Additional Details */}
-          <div className="border-t border-slate-200 pt-6 space-y-4">
+          {/* Additional Services */}
+          <div className="border-t border-slate-200 pt-6 space-y-6">
             <h4 className="font-semibold text-sm" style={{ color: '#0f172a' }}>
-              Additional Details (affects your quote)
+              Additional Services & Requirements
             </h4>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div className="flex items-start gap-3">
-                <Checkbox
-                  id="hasTitle"
-                  checked={hasTitle}
-                  onCheckedChange={(checked) => setHasTitle(checked as boolean)}
-                  className="mt-0.5"
-                />
-                <Label htmlFor="hasTitle" className="text-sm cursor-pointer flex flex-col gap-0.5" style={{ color: '#0f172a' }}>
-                  <span className="font-medium">I have the title / ownership papers</span>
-                  <span className="text-xs font-normal" style={{ color: '#94a3b8' }}>
-                    Clean title increases your payout by $50+
-                  </span>
-                </Label>
-              </div>
-
-              <div className="flex items-start gap-3">
-                <Checkbox
-                  id="privateProperty"
-                  checked={isOnPrivateProperty}
-                  onCheckedChange={(checked) => setIsOnPrivateProperty(checked as boolean)}
-                  className="mt-0.5"
-                />
-                <Label htmlFor="privateProperty" className="text-sm cursor-pointer flex flex-col gap-0.5" style={{ color: '#0f172a' }}>
-                  <span className="font-medium">Vehicle is on private property</span>
-                  <span className="text-xs font-normal" style={{ color: '#94a3b8' }}>
-                    Easier access = faster pickup
-                  </span>
-                </Label>
-              </div>
-
-              <div className="flex items-start gap-3">
-                <Checkbox
-                  id="sameDay"
-                  checked={requiresSameDayPickup}
-                  onCheckedChange={(checked) => setRequiresSameDayPickup(checked as boolean)}
-                  className="mt-0.5"
-                />
-                <Label htmlFor="sameDay" className="text-sm cursor-pointer flex flex-col gap-0.5" style={{ color: '#0f172a' }}>
-                  <span className="font-medium">Need same-day pickup</span>
-                  <span className="text-xs font-normal" style={{ color: '#94a3b8' }}>
-                    Subject to availability — may slightly reduce offer
-                  </span>
-                </Label>
-              </div>
-
-              <div className="flex items-start gap-3">
+            {/* Hazardous Materials */}
+            <div className="space-y-3">
+              <div className="flex items-center gap-3">
                 <Checkbox
                   id="hazardous"
-                  checked={hasHazardousFluid}
-                  onCheckedChange={(checked) => setHasHazardousFluid(checked as boolean)}
-                  className="mt-0.5"
+                  checked={hasHazardousMaterials}
+                  onCheckedChange={(checked) => setHasHazardousMaterials(checked as boolean)}
                 />
-                <Label htmlFor="hazardous" className="text-sm cursor-pointer flex flex-col gap-0.5" style={{ color: '#0f172a' }}>
-                  <span className="font-medium">Leaking fluids / hazmat concern</span>
+                <Label htmlFor="hazardous" className="text-sm font-medium cursor-pointer flex flex-col gap-1" style={{ color: '#0f172a' }}>
+                  <span>Hazardous materials present?</span>
                   <span className="text-xs font-normal" style={{ color: '#94a3b8' }}>
-                    Fuel, oil, or coolant leaks (extra handling required)
+                    Airbags, mercury switches, batteries, fuel system components (+$150)
                   </span>
                 </Label>
               </div>
             </div>
+
+            {/* Fluid Draining */}
+            <div className="space-y-3">
+              <div className="flex items-center gap-3">
+                <Checkbox
+                  id="fluids"
+                  checked={needsFluidDraining}
+                  onCheckedChange={(checked) => setNeedsFluidDraining(checked as boolean)}
+                />
+                <Label htmlFor="fluids" className="text-sm font-medium cursor-pointer flex flex-col gap-1" style={{ color: '#0f172a' }}>
+                  <span>Fluid draining required?</span>
+                  <span className="text-xs font-normal" style={{ color: '#94a3b8' }}>
+                    Oil, coolant, brake fluid, transmission fluid (+$75)
+                  </span>
+                </Label>
+              </div>
+            </div>
+
+            {/* Internal Removal */}
+            <div className="space-y-3">
+              <div className="flex items-center gap-3">
+                <Checkbox
+                  id="internal"
+                  checked={needsInternalRemoval}
+                  onCheckedChange={(checked) => setNeedsInternalRemoval(checked as boolean)}
+                />
+                <Label htmlFor="internal" className="text-sm font-medium cursor-pointer flex flex-col gap-1" style={{ color: '#0f172a' }}>
+                  <span>Internal component removal?</span>
+                  <span className="text-xs font-normal" style={{ color: '#94a3b8' }}>
+                    Seats, dashboard, engine components (+$100)
+                  </span>
+                </Label>
+              </div>
+            </div>
+
+            {/* Disassembly */}
+            <div className="space-y-3">
+              <div className="flex items-center gap-3">
+                <Checkbox
+                  id="disassembly"
+                  checked={needsDisassembly}
+                  onCheckedChange={(checked) => setNeedsDisassembly(checked as boolean)}
+                />
+                <Label htmlFor="disassembly" className="text-sm font-medium cursor-pointer flex flex-col gap-1" style={{ color: '#0f172a' }}>
+                  <span>Major disassembly required?</span>
+                  <span className="text-xs font-normal" style={{ color: '#94a3b8' }}>
+                    Engine, transmission, axles, body panels (+$200)
+                  </span>
+                </Label>
+              </div>
+            </div>
+
+            {/* Towing Distance */}
+            <div className="space-y-2">
+              <Label htmlFor="towing" className="text-sm font-medium" style={{ color: '#0f172a' }}>
+                Towing Distance (km) - If vehicle won't start
+              </Label>
+              <Input
+                id="towing"
+                type="number"
+                placeholder="e.g., 25"
+                value={towingDistanceKm}
+                onChange={(e) => setTowingDistanceKm(e.target.value)}
+                step="1"
+                min="0"
+                className="h-11 border-slate-200"
+              />
+              <p className="text-xs" style={{ color: '#94a3b8' }}>
+                $3.50/km beyond 25km from depot
+              </p>
+            </div>
           </div>
 
-          {/* Error */}
+          {/* Error Display */}
           {error && (
             <div className="flex items-start gap-3 p-4 rounded-lg bg-red-50 border border-red-200">
               <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
@@ -256,7 +410,7 @@ export function QuoteCalculator() {
             </div>
           )}
 
-          {/* Submit */}
+          {/* Submit Button */}
           <Button
             type="submit"
             disabled={loading}
@@ -270,99 +424,160 @@ export function QuoteCalculator() {
             ) : (
               <>
                 <DollarSign className="w-4 h-4" />
-                Get My Instant Quote
+                Calculate Quote
               </>
             )}
           </Button>
-
-          <p className="text-xs text-center" style={{ color: '#94a3b8' }}>
-            No obligation. Final offer confirmed at pickup after vehicle inspection.
-          </p>
         </form>
       </Card>
 
       {/* Quote Results */}
-      {quote && !quote.error && (
-        <Card className="p-8 border border-slate-200 bg-gradient-to-br from-slate-50 to-white shadow-sm">
+      {quote && (
+        <Card className="p-8 border border-slate-200 bg-gradient-to-br from-slate-50 to-white">
           <div className="space-y-6">
-            {/* Header */}
             <div className="flex items-start justify-between gap-4">
               <div>
                 <h2 className="text-2xl font-bold" style={{ color: '#0f172a' }}>
-                  Your Estimated Payout
+                  Car Removal Quote
                 </h2>
                 <p className="text-sm mt-1" style={{ color: '#64748b' }}>
-                  {vehicleMake || 'Your vehicle'} · {vehicleYear || 'Year unknown'} · {VEHICLE_CONDITION_LABELS[vehicleCondition]}
+                  Professional Tasmania vehicle disposal estimate
                 </p>
               </div>
-              <CheckCircle2 className="w-8 h-8 text-green-500 flex-shrink-0 mt-1" />
+              <CheckCircle2 className="w-8 h-8 text-green-600 flex-shrink-0 mt-1" />
             </div>
 
-            {/* Payout Range */}
-            <div className="bg-white rounded-xl p-6 border border-slate-100 space-y-3">
-              <p className="text-xs font-semibold tracking-widest uppercase" style={{ color: '#94a3b8' }}>
-                Estimated Cash Payout (incl. GST)
+            {/* Main Price */}
+            <div className="bg-white rounded-lg p-6 border border-slate-100">
+              <p className="text-sm font-medium mb-2" style={{ color: '#94a3b8' }}>
+                TOTAL ESTIMATE (Inc. GST)
               </p>
-              <div className="flex items-end gap-3">
-                <p className="text-5xl font-bold" style={{ color: '#f97316' }}>
-                  ${quote.estimatedPayout.mid.toLocaleString('en-AU')}
+              <p className="text-5xl font-bold" style={{ color: '#f97316' }}>
+                ${quote.totalAUD.toLocaleString('en-AU', { maximumFractionDigits: 0 })}
+              </p>
+              <p className="text-xs mt-2" style={{ color: '#94a3b8' }}>
+                Subtotal (before 10% GST): ${quote.subtotalAUD.toLocaleString('en-AU', { maximumFractionDigits: 0 })}
+              </p>
+            </div>
+
+            {quote.geminiImageSummaries && quote.geminiImageSummaries.length > 0 && (
+              <div className="bg-white rounded-lg p-6 border border-slate-100 space-y-3">
+                <h3 className="font-semibold" style={{ color: '#0f172a' }}>
+                  AI Vehicle Analysis
+                </h3>
+                <ul className="space-y-2">
+                  {quote.geminiImageSummaries.map((summary) => (
+                    <li key={summary.index} className="text-sm space-y-1" style={{ color: '#475569' }}>
+                      <p>
+                        <strong>Image {summary.index + 1}:</strong> {summary.description}
+                      </p>
+                      <p style={{ color: '#64748b' }}>
+                        Confidence: {summary.confidence}% | Condition: {summary.conditionLevel} | Damage: {summary.damageLevel}
+                      </p>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            {/* Cost Breakdown */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              <div className="bg-white rounded-lg p-4 border border-slate-100">
+                <p className="text-xs font-medium mb-1" style={{ color: '#94a3b8' }}>
+                  Base Fee
                 </p>
-                <p className="text-lg pb-1" style={{ color: '#94a3b8' }}>
-                  est.
+                <p className="text-xl font-bold" style={{ color: '#0f172a' }}>
+                  ${quote.baseFeeAUD.toLocaleString('en-AU', { maximumFractionDigits: 0 })}
+                </p>
+                <p className="text-xs mt-1" style={{ color: '#94a3b8' }}>
+                  {quote.vehicleType} removal
                 </p>
               </div>
-              <div className="flex gap-4">
-                <div>
-                  <p className="text-xs" style={{ color: '#94a3b8' }}>Low estimate</p>
-                  <p className="font-semibold text-sm" style={{ color: '#475569' }}>
-                    ${quote.estimatedPayout.low.toLocaleString('en-AU')}
+
+              <div className="bg-white rounded-lg p-4 border border-slate-100">
+                <p className="text-xs font-medium mb-1" style={{ color: '#94a3b8' }}>
+                  Condition Adjustment
+                </p>
+                <p className="text-xl font-bold" style={{ color: '#0f172a' }}>
+                  ${quote.conditionAdjustmentAUD.toLocaleString('en-AU', { maximumFractionDigits: 0 })}
+                </p>
+                <p className="text-xs mt-1" style={{ color: '#94a3b8' }}>
+                  {quote.conditionMultiplier}x multiplier
+                </p>
+              </div>
+
+              {(quote.locationSurchargeAUD > 0 || quote.hazardousMaterialsFeeAUD > 0) && (
+                <div className="bg-white rounded-lg p-4 border border-slate-100 md:col-span-2">
+                  <p className="text-xs font-medium mb-1" style={{ color: '#94a3b8' }}>
+                    Surcharges
+                  </p>
+                  <p className="text-xl font-bold" style={{ color: '#0f172a' }}>
+                    ${(quote.locationSurchargeAUD + quote.hazardousMaterialsFeeAUD).toLocaleString('en-AU', { maximumFractionDigits: 0 })}
+                  </p>
+                  <p className="text-xs mt-1" style={{ color: '#94a3b8' }}>
+                    Location + hazardous materials
                   </p>
                 </div>
-                <div className="w-px bg-slate-200" />
-                <div>
-                  <p className="text-xs" style={{ color: '#94a3b8' }}>High estimate</p>
-                  <p className="font-semibold text-sm" style={{ color: '#475569' }}>
-                    ${quote.estimatedPayout.high.toLocaleString('en-AU')}
+              )}
+
+              {(quote.fluidDrainingFeeAUD > 0 || quote.internalRemovalFeeAUD > 0 || quote.disassemblyFeeAUD > 0 || quote.towingFeeAUD > 0) && (
+                <div className="bg-white rounded-lg p-4 border border-slate-100 md:col-span-2">
+                  <p className="text-xs font-medium mb-1" style={{ color: '#94a3b8' }}>
+                    Additional Services
+                  </p>
+                  <p className="text-xl font-bold" style={{ color: '#0f172a' }}>
+                    ${(quote.fluidDrainingFeeAUD + quote.internalRemovalFeeAUD + quote.disassemblyFeeAUD + quote.towingFeeAUD).toLocaleString('en-AU', { maximumFractionDigits: 0 })}
+                  </p>
+                  <p className="text-xs mt-1" style={{ color: '#94a3b8' }}>
+                    Fluids, removal, disassembly, towing
                   </p>
                 </div>
-                <div className="w-px bg-slate-200" />
+              )}
+            </div>
+
+            {/* Service Details */}
+            <div className="bg-gradient-to-br from-orange-50 to-amber-50 rounded-lg p-6 border border-orange-200">
+              <h3 className="font-semibold mb-4 flex items-center gap-2" style={{ color: '#0f172a' }}>
+                <Truck className="w-5 h-5" />
+                Service Details
+              </h3>
+              <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <p className="text-xs" style={{ color: '#94a3b8' }}>Pickup fee</p>
-                  <p className="font-semibold text-sm text-green-600">
-                    {quote.pickupFee === 0 ? 'FREE' : `-$${quote.pickupFee}`}
+                  <p className="text-xs font-medium mb-1" style={{ color: '#94a3b8' }}>
+                    Collection
+                  </p>
+                  <p className="text-xl font-bold" style={{ color: '#f97316' }}>
+                    Same Day
+                  </p>
+                  <p className="text-xs mt-1" style={{ color: '#64748b' }}>
+                    Within Hobart metro area
                   </p>
                 </div>
+                <div>
+                  <p className="text-xs font-medium mb-1" style={{ color: '#94a3b8' }}>
+                    Processing
+                  </p>
+                  <p className="text-xl font-bold" style={{ color: '#0f172a' }}>
+                    24-48 Hours
+                  </p>
+                  <p className="text-xs mt-1" style={{ color: '#64748b' }}>
+                    Environmentally compliant
+                  </p>
+                </div>
+              </div>
+              <div className="mt-4 p-3 bg-white rounded border border-orange-100">
+                <p className="text-xs" style={{ color: '#475569' }}>
+                  <strong>What's included:</strong> Collection, environmental disposal, recycling, paperwork. Excludes title transfer fees and any outstanding fines.
+                </p>
               </div>
             </div>
 
-            {/* Highlights */}
-            <div className="bg-gradient-to-br from-orange-50 to-amber-50 rounded-xl p-6 border border-orange-200">
-              <h3 className="font-semibold mb-3 flex items-center gap-2" style={{ color: '#0f172a' }}>
-                <Recycle className="w-4 h-4 text-orange-500" />
-                What's Included
+            {/* Job Details */}
+            <div className="bg-white rounded-lg p-6 border border-slate-100 space-y-3">
+              <h3 className="font-semibold" style={{ color: '#0f172a' }}>
+                Quote Assumptions
               </h3>
               <ul className="space-y-2">
-                {quote.highlights.map((h, i) => (
-                  <li key={i} className="text-sm" style={{ color: '#475569' }}>
-                    {h}
-                  </li>
-                ))}
-              </ul>
-            </div>
-
-            {/* Timeframe */}
-            <div className="flex items-center gap-3 bg-white rounded-lg p-4 border border-slate-100">
-              <Clock className="w-5 h-5 text-orange-500 flex-shrink-0" />
-              <div>
-                <p className="text-xs font-medium" style={{ color: '#94a3b8' }}>ESTIMATED PICKUP TIMEFRAME</p>
-                <p className="font-semibold" style={{ color: '#0f172a' }}>{quote.timeframe}</p>
-              </div>
-            </div>
-
-            {/* Assumptions */}
-            <div className="bg-white rounded-lg p-5 border border-slate-100 space-y-2">
-              <h3 className="font-semibold text-sm" style={{ color: '#0f172a' }}>Quote Assumptions</h3>
-              <ul className="space-y-1">
                 {quote.assumptions.map((assumption, idx) => (
                   <li key={idx} className="text-sm flex gap-2" style={{ color: '#475569' }}>
                     <span style={{ color: '#f97316' }}>•</span>
@@ -372,15 +587,15 @@ export function QuoteCalculator() {
               </ul>
             </div>
 
-            {/* CTA */}
+            {/* Get Full Quote CTA */}
             <Button
               className="w-full h-12 font-semibold text-white bg-[#f97316] hover:bg-[#ea6c0a] gap-2"
               onClick={() => {
+                // Scroll to lead form or trigger contact
                 document.getElementById('lead-form')?.scrollIntoView({ behavior: 'smooth' })
               }}
             >
-              <CheckCircle2 className="w-4 h-4" />
-              Book My Free Pickup Now
+              Book Collection
             </Button>
           </div>
         </Card>
